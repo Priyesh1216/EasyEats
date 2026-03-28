@@ -1,26 +1,33 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { clearAndSeedMeals } from "./src/services/mealService";
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 
-export default function App(): React.JSX.Element {
+import WelcomeScreen from './src/screens/WelcomeScreen';
+import SignUpScreen from './src/screens/SignUpScreen';
+import LoginScreen from './src/screens/LoginScreen';
 
-  useEffect(() => {
-    if (__DEV__) {
-      clearAndSeedMeals();
-    }
-  }, []);
+// Define the types for your routes
+export type RootStackParamList = {
+  Welcome: undefined;
+  Login: undefined;
+  SignUp: undefined;
+  Home: undefined;
+};
 
+const Stack = createStackNavigator<RootStackParamList>();
+
+export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>EasyEats</Text>
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="Welcome"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
