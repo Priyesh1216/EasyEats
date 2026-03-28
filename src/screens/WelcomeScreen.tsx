@@ -3,69 +3,55 @@ import {
     StyleSheet,
     View,
     Text,
-    Image,
-    TouchableOpacity,
     SafeAreaView,
-    Dimensions,
-    StatusBar,
+    TouchableOpacity,
+    Image
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
+import { ArrowRight } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
-
-const WelcomeScreen: React.FC = () => {
-    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-
+const WelcomeScreen = ({ navigation }: any) => {
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" />
-
-            <View style={styles.header}>
+            <View style={styles.headerSection}>
                 <View style={styles.logoCircle}>
                     <Image
                         source={require('../../assets/logo_icon.png')}
-                        style={styles.logoImage}
-                        resizeMode="contain"
+                        style={styles.logoIcon}
                     />
                 </View>
-                <Text style={styles.brandText}>EasyEats</Text>
-                <Text style={styles.subBrandText}>Meal planning made easy</Text>
+                <Text style={styles.brandName}>EasyEats</Text>
+                <Text style={styles.tagline}>Meal planning made easy</Text>
             </View>
 
-            <View style={styles.imageWrapper}>
+            <View style={styles.heroSection}>
                 <Image
                     source={require('../../assets/food_plate.png')}
-                    style={styles.plateImage}
-                    resizeMode="contain"
+                    style={styles.heroImage}
                 />
-            </View>
-
-            <View style={styles.footer}>
-                <Text style={styles.mainHeadline}>
+                <Text style={styles.heroText}>
                     Simple meal planning,{"\n"}made for you
                 </Text>
+            </View>
 
+            <View style={styles.footerSection}>
                 <TouchableOpacity
                     style={styles.getStartedBtn}
                     onPress={() => navigation.navigate('SignUp')}
                 >
-                    <View style={styles.btnContent}>
-                        <View style={styles.spacer} />
-                        <Text style={styles.btnText}>Get Started</Text>
-                        <View style={styles.arrowBox}>
-                            <Text style={styles.arrowIcon}>→</Text>
-                        </View>
+                    <Text style={styles.getStartedText}>Get Started</Text>
+                    <View style={styles.arrowCircle}>
+                        <ArrowRight size={20} color="#FFFFFF" />
                     </View>
                 </TouchableOpacity>
 
-                <View style={styles.loginRow}>
-                    <Text style={styles.accountText}>Already have an account? </Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                        <Text style={styles.signInLink}>Sign in</Text>
-                    </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                    style={styles.loginLinkContainer}
+                    onPress={() => navigation.navigate('Login')}
+                >
+                    <Text style={styles.loginBaseText}>
+                        Already have an account? <Text style={styles.orangeText}>Sign in</Text>
+                    </Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -76,95 +62,107 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFFFFF',
     },
-    header: {
+    headerSection: {
         alignItems: 'center',
-        marginTop: 40,
+        marginTop: 60,
+        marginBottom: 0,
+        marginLeft: 0,
+        marginRight: 0,
     },
     logoCircle: {
-        width: 75,
-        height: 75,
-        borderRadius: 37.5,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         backgroundColor: '#4CAF50',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 20,
+        marginTop: 0,
+        marginLeft: 0,
+        marginRight: 0,
     },
-    logoImage: {
-        width: '60%',
-        height: '60%',
+    logoIcon: {
+        width: 45,
+        height: 45,
+        resizeMode: 'contain',
     },
-    brandText: {
-        fontSize: 42,
+    brandName: {
+        fontSize: 36,
         fontWeight: 'bold',
         color: '#4CAF50',
+        marginTop: 0,
+        marginBottom: 0,
     },
-    subBrandText: {
+    tagline: {
         fontSize: 14,
-        color: '#FF9B85',
-        fontWeight: '500',
+        color: '#666666',
+        marginTop: 5,
+        marginBottom: 0,
     },
-    imageWrapper: {
+    heroSection: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        width: '100%',
+        marginTop: 20,
+        marginBottom: 0,
     },
-    plateImage: {
-        width: width * 0.8,
-        height: width * 0.8,
+    heroImage: {
+        width: 250,
+        height: 250,
+        resizeMode: 'contain',
     },
-    footer: {
-        paddingHorizontal: 25,
+    heroText: {
+        fontSize: 22,
+        fontWeight: '500',
+        color: '#333333',
+        textAlign: 'center',
+        marginTop: 40,
+        marginBottom: 0,
+        lineHeight: 28,
+    },
+    footerSection: {
+        paddingLeft: 40,
+        paddingRight: 40,
         paddingBottom: 40,
+        paddingTop: 0,
         alignItems: 'center',
     },
-    mainHeadline: {
-        fontSize: 24,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 30,
-    },
     getStartedBtn: {
+        flexDirection: 'row',
         backgroundColor: '#4CAF50',
         width: '100%',
         height: 60,
         borderRadius: 12,
-        justifyContent: 'center',
-        paddingHorizontal: 8,
-    },
-    btnContent: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        position: 'relative',
     },
-    spacer: {
-        width: 44,
-    },
-    btnText: {
-        color: '#FFF',
+    getStartedText: {
+        color: '#FFFFFF',
         fontSize: 18,
         fontWeight: 'bold',
     },
-    arrowBox: {
-        backgroundColor: '#000',
-        width: 44,
-        height: 44,
-        borderRadius: 8,
+    arrowCircle: {
+        position: 'absolute',
+        right: 15,
+        width: 35,
+        height: 35,
+        borderRadius: 10,
+        backgroundColor: '#000000',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    arrowIcon: {
-        color: '#FFF',
-        fontSize: 20,
+    loginLinkContainer: {
+        marginTop: 15,
+        marginBottom: 0,
+        marginLeft: 0,
+        marginRight: 0,
     },
-    loginRow: {
-        flexDirection: 'row',
-        marginTop: 20,
+    loginBaseText: {
+        color: '#666666',
+        fontSize: 12,
     },
-    accountText: {
-        color: '#666',
-    },
-    signInLink: {
+    orangeText: {
         color: '#FF9B85',
         fontWeight: 'bold',
     },

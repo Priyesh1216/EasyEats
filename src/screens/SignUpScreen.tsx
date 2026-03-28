@@ -1,90 +1,63 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     StyleSheet,
     View,
     Text,
-    Image,
+    SafeAreaView,
     TextInput,
     TouchableOpacity,
-    SafeAreaView,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
+    Image
 } from 'react-native';
-import { User, Mail, Phone, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
+import { User, Mail, Lock, Eye } from 'lucide-react-native';
 
-const SignUpScreen: React.FC = () => {
-    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-    const [showPass, setShowPass] = useState(false);
-
+const SignUpScreen = ({ navigation }: any) => {
     return (
         <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flexOne}
-            >
-                <ScrollView contentContainerStyle={styles.scrollPadding}>
-                    <View style={styles.header}>
-                        <View style={styles.logoCircle}>
-                            <Image
-                                source={require('../../assets/logo_icon.png')}
-                                style={styles.headerLogo}
-                                resizeMode="contain"
-                            />
-                        </View>
-                        <Text style={styles.title}>Create Account</Text>
-                        <Text style={styles.subtitle}>Simple meals, less thinking</Text>
-                    </View>
+            <View style={styles.header}>
+                <View style={styles.logoCircle}>
+                    <Image
+                        source={require('../../assets/logo_icon.png')}
+                        style={styles.logoImage}
+                    />
+                </View>
+                <Text style={styles.title}>Create Account</Text>
+                <Text style={styles.subtitle}>Simple meals, less thinking</Text>
+            </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Full Name *</Text>
-                        <View style={styles.inputWrapper}>
-                            <User size={20} color="#999" />
-                            <TextInput placeholder="Name" style={styles.input} />
-                        </View>
-                    </View>
+            <View style={styles.form}>
+                <Text style={styles.inputLabel}>Full Name *</Text>
+                <View style={styles.inputBox}>
+                    <User size={20} color="#999999" />
+                    <TextInput placeholder="Name" style={styles.inputField} />
+                </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email Address *</Text>
-                        <View style={styles.inputWrapper}>
-                            <Mail size={20} color="#999" />
-                            <TextInput placeholder="you@example.com" style={styles.input} />
-                        </View>
-                    </View>
+                <Text style={styles.inputLabel}>Email Address *</Text>
+                <View style={styles.inputBox}>
+                    <Mail size={20} color="#999999" />
+                    <TextInput placeholder="you@example.com" style={styles.inputField} />
+                </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Password *</Text>
-                        <View style={styles.inputWrapper}>
-                            <Lock size={20} color="#999" />
-                            <TextInput
-                                secureTextEntry={!showPass}
-                                placeholder="Minimum 8 characters"
-                                style={styles.input}
-                            />
-                            <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                                {showPass ? <EyeOff size={20} color="#999" /> : <Eye size={20} color="#999" />}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                <Text style={styles.inputLabel}>Password *</Text>
+                <View style={styles.inputBox}>
+                    <Lock size={20} color="#999999" />
+                    <TextInput placeholder="Minimum 8 characters" secureTextEntry style={styles.inputField} />
+                    <Eye size={20} color="#999999" />
+                </View>
 
-                    <TouchableOpacity
-                        style={styles.submitBtn}
-                        onPress={() => navigation.navigate('Home')}
-                    >
-                        <Text style={styles.submitBtnText}>Create Account</Text>
+                <TouchableOpacity
+                    style={styles.createBtn}
+                    onPress={() => navigation.navigate('Preferences')}
+                >
+                    <Text style={styles.createBtnText}>Create Account</Text>
+                </TouchableOpacity>
+
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>Already have an account? </Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                        <Text style={styles.orangeLink}>Sign in</Text>
                     </TouchableOpacity>
-
-                    <View style={styles.footerRow}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                            <Text style={styles.linkText}>Sign in</Text>
-                        </TouchableOpacity>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                </View>
+            </View>
         </SafeAreaView>
     );
 };
@@ -92,61 +65,65 @@ const SignUpScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9F9F9',
-    },
-    flexOne: {
-        flex: 1,
-    },
-    scrollPadding: {
-        padding: 25,
+        backgroundColor: '#FBFBFB',
     },
     header: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginTop: 40,
+        marginBottom: 0,
     },
     logoCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
         backgroundColor: '#4CAF50',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 10,
-    },
-    headerLogo: {
-        width: '60%',
-        height: '60%',
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-    },
-    subtitle: {
-        color: '#666',
-    },
-    inputGroup: {
         marginBottom: 15,
     },
-    label: {
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 5,
+    logoImage: {
+        width: 40,
+        height: 40,
+        resizeMode: 'contain',
     },
-    inputWrapper: {
+    title: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#000000',
+    },
+    subtitle: {
+        color: '#666666',
+        marginTop: 4,
+    },
+    form: {
+        paddingLeft: 25,
+        paddingRight: 25,
+        marginTop: 25,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: '#333333',
+    },
+    inputBox: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: '#DDD',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        height: 50,
-        backgroundColor: '#FFF',
+        borderColor: '#000000',
+        borderRadius: 12,
+        paddingLeft: 15,
+        paddingRight: 15,
+        height: 55,
+        marginBottom: 15,
     },
-    input: {
+    inputField: {
         flex: 1,
         marginLeft: 10,
+        fontSize: 16,
     },
-    submitBtn: {
+    createBtn: {
         backgroundColor: '#4CAF50',
         height: 55,
         borderRadius: 12,
@@ -154,20 +131,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 10,
     },
-    submitBtnText: {
-        color: '#FFF',
+    createBtnText: {
+        color: '#FFFFFF',
+        fontSize: 18,
         fontWeight: 'bold',
-        fontSize: 16,
     },
-    footerRow: {
+    footer: {
         flexDirection: 'row',
         justifyContent: 'center',
         marginTop: 20,
     },
     footerText: {
-        fontSize: 14,
+        color: '#666666',
     },
-    linkText: {
+    orangeLink: {
         color: '#FF9B85',
         fontWeight: 'bold',
     },
