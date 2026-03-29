@@ -181,7 +181,11 @@ const HomeScreen = () => {
                         <Plus size={18} color="#000" strokeWidth={3} />
                     </TouchableOpacity>
                 </View>
-                <Text style={styles.cardDescription} numberOfLines={1}>{meal.description}</Text>
+                <Image
+                    source={require('../../assets/custom_logo.png')}
+                    style={styles.headerLogo}
+                />
+            </View>
 
                 <View style={styles.metaRow}>
                     <Clock size={16} color="#FF8A65" />
