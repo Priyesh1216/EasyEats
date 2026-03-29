@@ -9,16 +9,22 @@ import {
     Image,
     FlatList,
     ActivityIndicator,
+    Modal,
+    ScrollView,
+    Dimensions
 } from 'react-native';
-import { SlidersHorizontal, Search, Clock, Users, Heart, Plus, RotateCw } from 'lucide-react-native';
+import { SlidersHorizontal, Search, Clock, Users, Heart, Plus, RotateCw, X } from 'lucide-react-native';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { Meal, Category } from '../types/meal';
+
+const { height, width } = Dimensions.get('window');
 
 const HomeScreen = () => {
     const [meals, setMeals] = useState<Meal[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState<Category>('healthy');
+    const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
 
     const categories: { label: string; value: Category }[] = [
         { label: 'Healthy', value: 'healthy' },
@@ -49,7 +55,11 @@ const HomeScreen = () => {
     }, [activeCategory]);
 
     const MealCard = ({ meal }: { meal: Meal }) => (
-        <View style={styles.cardContainer}>
+        <TouchableOpacity
+            style={styles.cardContainer}
+            onPress={() => setSelectedMeal(meal)}
+            activeOpacity={0.9}
+        >
             <View style={styles.card}>
                 <Image source={{ uri: meal.imageUrl }} style={styles.cardImage} />
                 <View style={styles.cardContent}>
@@ -76,7 +86,7 @@ const HomeScreen = () => {
                         <Text style={styles.cardBadge}>{meal.effortLevel}</Text>
                         <Text style={styles.cardSeparator}>|</Text>
                         <Text style={styles.cardBadge}>{meal.cost}</Text>
-                        {meal.dietaryPreferences.length > 0 && (
+                        {meal.dietaryPreferences && meal.dietaryPreferences.length > 0 && (
                             <>
                                 <Text style={styles.cardSeparator}>|</Text>
                                 <Text style={styles.cardBadge}>{meal.dietaryPreferences[0]}</Text>
@@ -92,7 +102,7 @@ const HomeScreen = () => {
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -103,7 +113,7 @@ const HomeScreen = () => {
                     <Text style={styles.subText}>Find a meal that fits your day</Text>
                 </View>
                 <Image
-                    source={require('../../assets/logo_icon.png')}
+                    source={require('../../assets/custom_logo.png')}
                     style={styles.headerLogo}
                 />
             </View>
@@ -164,6 +174,69 @@ const HomeScreen = () => {
                     }
                 />
             )}
+
+            <Modal
+                visible={!!selectedMeal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setSelectedMeal(null)}
+            >
+                <View style={styles.modalOverlay}>
+                    <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.absoluteHero} />
+
+                    <View style={styles.modalContainer}>
+                        <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedMeal(null)}>
+                            <X size={24} color="#000" />
+                        </TouchableOpacity>
+
+                        <View style={styles.detailInfoBox}>
+                            <ScrollView
+                                showsVerticalScrollIndicator={true}
+                                indicatorStyle="black"
+                                contentContainerStyle={styles.innerScrollContent}
+                                scrollIndicatorInsets={{ right: 2, top: 10, bottom: 10 }}
+                            >
+                                <View style={styles.detailRow}>
+                                    <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.detailThumb} />
+                                    <View style={{ flex: 1, marginLeft: 15 }}>
+                                        <Text style={styles.detailTitle}>{selectedMeal?.name}</Text>
+                                        <Text style={styles.detailSubText}>{selectedMeal?.description}</Text>
+
+                                        <View style={styles.detailMetaStack}>
+                                            <View style={styles.metaRow}>
+                                                <Clock size={18} color="#FF8A65" />
+                                                <Text style={styles.cardMetaText}>{selectedMeal?.timeMinutes} min</Text>
+                                            </View>
+                                            <View style={styles.metaRow}>
+                                                <Users size={18} color="#FF8A65" />
+                                                <Text style={styles.cardMetaText}>{selectedMeal?.servings} servings</Text>
+                                            </View>
+                                        </View>
+
+                                        <Text style={styles.cardBadge}>
+                                            {selectedMeal?.effortLevel}  |  {selectedMeal?.cost}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <Text style={styles.sectionHeading}>Ingredients</Text>
+                                {selectedMeal?.ingredients?.map((item, index) => (
+                                    <Text key={index} style={styles.bulletItem}>
+                                        • {item.amount} {item.name}
+                                    </Text>
+                                ))}
+
+                                <Text style={styles.sectionHeading}>Instructions</Text>
+                                {selectedMeal?.steps?.map((step, index) => (
+                                    <Text key={index} style={styles.stepItem}>
+                                        {index + 1}. {step}
+                                    </Text>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -351,6 +424,96 @@ const styles = StyleSheet.create({
         color: '#FF8A65',
         fontWeight: '700',
         fontSize: 14,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.95)',
+    },
+    absoluteHero: {
+        position: 'absolute',
+        top: 0,
+        width: width,
+        height: height * 0.4,
+        resizeMode: 'cover',
+    },
+    modalContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    closeBtn: {
+        position: 'absolute',
+        top: 45,
+        right: 15,
+        backgroundColor: 'rgba(255,255,255,0.85)',
+        borderRadius: 20,
+        padding: 6,
+        zIndex: 10,
+        elevation: 5,
+    },
+    detailInfoBox: {
+        backgroundColor: '#FFF',
+        borderRadius: 15,
+        borderWidth: 4,
+        borderColor: '#FF8A65',
+        width: '98%',
+        height: height * 0.83,
+        marginTop: height * 0.15,
+        marginBottom: 8,
+        overflow: 'hidden',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        paddingRight: 2,
+    },
+    innerScrollContent: {
+        padding: 16,
+        paddingBottom: 40,
+    },
+    detailThumb: {
+        width: 110,
+        height: 110,
+        borderRadius: 12,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        marginBottom: 10,
+    },
+    detailTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#1A1A1A',
+    },
+    detailSubText: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 4,
+    },
+    detailMetaStack: {
+        marginVertical: 10,
+    },
+    sectionHeading: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#1A1A1A',
+        marginTop: 25,
+        marginBottom: 12,
+    },
+    bulletItem: {
+        fontSize: 15,
+        color: '#333',
+        marginBottom: 8,
+        lineHeight: 22,
+    },
+    stepItem: {
+        fontSize: 15,
+        color: '#333',
+        marginBottom: 15,
+        lineHeight: 24,
     },
 });
 
