@@ -133,6 +133,10 @@ const HomeScreen = () => {
         type === 'allergies' ? setCustomAllergy('') : setCustomDietary('');
     };
 
+    const clearAllFilters = () => {
+        setFilters({ allergies: [], dietary: [], effort: '' });
+    };
+
     const FilterChip = ({ label, isSelected, onPress, isRemovable }: any) => (
         <TouchableOpacity
             style={[styles.chip, isSelected && styles.chipSelected, isRemovable && styles.activePill]}
@@ -236,6 +240,7 @@ const HomeScreen = () => {
                             <Text style={styles.filterMenuTitle}>Filters</Text>
                             <TouchableOpacity onPress={() => setIsFilterVisible(false)}><X size={24} color="#000" /></TouchableOpacity>
                         </View>
+
                         <ScrollView showsVerticalScrollIndicator={false}>
                             <Text style={styles.filterSectionLabel}>Allergies (Exclude)</Text>
                             <View style={styles.inputRow}>
@@ -247,8 +252,39 @@ const HomeScreen = () => {
                                     <FilterChip key={item} label={item} isSelected={filters.allergies.includes(item)} onPress={() => toggleFilter('allergies', item)} />
                                 ))}
                             </View>
+
+                            <Text style={styles.filterSectionLabel}>Dietary Preferences</Text>
+                            <View style={styles.inputRow}>
+                                <TextInput style={styles.customInput} placeholder="e.g. Vegan, Keto..." value={customDietary} onChangeText={setCustomDietary} />
+                                <TouchableOpacity onPress={() => addCustomItem('dietary')}><PlusCircle size={32} color="#000" /></TouchableOpacity>
+                            </View>
+                            <View style={styles.chipRow}>
+                                {['Vegan', 'Vegetarian', 'Pescetarian', 'Paleo'].map(item => (
+                                    <FilterChip key={item} label={item} isSelected={filters.dietary.includes(item)} onPress={() => toggleFilter('dietary', item)} />
+                                ))}
+                            </View>
+
+                            <Text style={styles.filterSectionLabel}>Cooking Effort</Text>
+                            <View style={styles.chipRow}>
+                                {effortOptions.map(option => (
+                                    <FilterChip
+                                        key={option}
+                                        label={option}
+                                        isSelected={filters.effort === option}
+                                        onPress={() => setFilters(prev => ({ ...prev, effort: prev.effort === option ? '' : option }))}
+                                    />
+                                ))}
+                            </View>
                         </ScrollView>
-                        <TouchableOpacity style={styles.applyBtn} onPress={() => setIsFilterVisible(false)}><Text style={styles.applyBtnText}>Apply Filters</Text></TouchableOpacity>
+
+                        <View style={styles.filterFooterButtons}>
+                            <TouchableOpacity style={styles.clearBtn} onPress={clearAllFilters}>
+                                <Text style={styles.clearBtnText}>Clear All</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.applyBtn} onPress={() => setIsFilterVisible(false)}>
+                                <Text style={styles.applyBtnText}>Apply Filters</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -256,76 +292,46 @@ const HomeScreen = () => {
             <Modal visible={!!selectedMeal} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
                     <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.absoluteHero} blurRadius={2} />
-
                     <View style={styles.modalContainer}>
                         <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedMeal(null)}>
                             <X size={28} color="#000" strokeWidth={2.5} />
                         </TouchableOpacity>
-
                         <View style={styles.detailInfoBox}>
-                            <ScrollView
-                                style={styles.internalScrollView}
-                                contentContainerStyle={styles.innerScrollContent}
-                                showsVerticalScrollIndicator={true}
-                                indicatorStyle="black"
-                                decelerationRate="fast"
-                            >
+                            <ScrollView style={styles.internalScrollView} contentContainerStyle={styles.innerScrollContent} showsVerticalScrollIndicator={true}>
                                 <View style={styles.detailHeaderSection}>
                                     <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.detailThumb} />
                                     <View style={styles.detailHeaderText}>
                                         <View style={styles.titleRow}>
                                             <Text style={styles.detailTitle}>{selectedMeal?.name}</Text>
-                                            <TouchableOpacity
-                                                style={styles.detailHeartBtn}
-                                                onPress={() => toggleFavorite(selectedMeal!.id)}
-                                            >
-                                                <Heart
-                                                    size={24}
-                                                    color={selectedMeal?.favorited ? "#FF0000" : "#000"}
-                                                    fill={selectedMeal?.favorited ? "#FF0000" : "transparent"}
-                                                />
+                                            <TouchableOpacity style={styles.detailHeartBtn} onPress={() => toggleFavorite(selectedMeal!.id)}>
+                                                <Heart size={24} color={selectedMeal?.favorited ? "#FF0000" : "#000"} fill={selectedMeal?.favorited ? "#FF0000" : "transparent"} />
                                             </TouchableOpacity>
                                         </View>
                                         <Text style={styles.detailSubText}>{selectedMeal?.description}</Text>
-
                                         <View style={styles.detailMetaContainer}>
-                                            <View style={styles.metaRow}>
-                                                <Clock size={18} color="#FF8A65" />
-                                                <Text style={styles.detailMetaValue}>{selectedMeal?.timeMinutes} min</Text>
-                                            </View>
-                                            <View style={styles.metaRow}>
-                                                <Users size={18} color="#FF8A65" />
-                                                <Text style={styles.detailMetaValue}>{selectedMeal?.servings} servings</Text>
-                                            </View>
+                                            <View style={styles.metaRow}><Clock size={18} color="#FF8A65" /><Text style={styles.detailMetaValue}>{selectedMeal?.timeMinutes} min</Text></View>
+                                            <View style={styles.metaRow}><Users size={18} color="#FF8A65" /><Text style={styles.detailMetaValue}>{selectedMeal?.servings} servings</Text></View>
                                         </View>
                                     </View>
                                 </View>
-
                                 <View style={styles.detailDivider} />
-
                                 <View style={styles.detailSection}>
                                     <Text style={styles.sectionHeading}>Ingredients</Text>
                                     <View style={styles.ingredientsList}>
                                         {selectedMeal?.ingredients?.map((item: any, index: number) => (
                                             <View key={index} style={styles.ingredientRow}>
                                                 <Text style={styles.bulletPoint}>•</Text>
-                                                <Text style={styles.ingredientText}>
-                                                    <Text style={styles.ingredientAmount}>{item.amount} </Text>
-                                                    {item.name}
-                                                </Text>
+                                                <Text style={styles.ingredientText}><Text style={styles.ingredientAmount}>{item.amount} </Text>{item.name}</Text>
                                             </View>
                                         ))}
                                     </View>
                                 </View>
-
                                 <View style={styles.detailSection}>
                                     <Text style={styles.sectionHeading}>Instructions</Text>
                                     <View style={styles.stepsList}>
                                         {selectedMeal?.steps?.map((step: string, index: number) => (
                                             <View key={index} style={styles.stepContainer}>
-                                                <View style={styles.stepNumberCircle}>
-                                                    <Text style={styles.stepNumberText}>{index + 1}</Text>
-                                                </View>
+                                                <View style={styles.stepNumberCircle}><Text style={styles.stepNumberText}>{index + 1}</Text></View>
                                                 <Text style={styles.stepContentText}>{step}</Text>
                                             </View>
                                         ))}
@@ -341,7 +347,6 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    // LAYOUT & MAIN 
     container: { flex: 1, backgroundColor: '#FFFFFF' },
     loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     stickyHeaderContent: { backgroundColor: '#FFFFFF', paddingBottom: 15, zIndex: 10 },
@@ -349,8 +354,6 @@ const styles = StyleSheet.create({
     welcomeText: { fontSize: 26, fontWeight: '800', color: '#1A1A1A' },
     subText: { fontSize: 14, color: '#666', marginTop: 2 },
     headerLogo: { width: 50, height: 50, borderRadius: 25 },
-
-    // SEARCH & CATEGORY 
     searchRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20 },
     searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, paddingHorizontal: 15, height: 50, borderWidth: 1, borderColor: '#EEE', marginRight: 10 },
     searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
@@ -360,13 +363,9 @@ const styles = StyleSheet.create({
     categoryBtnActive: { backgroundColor: '#68BB59' },
     categoryBtnText: { color: '#68BB59', fontWeight: '800', fontSize: 14 },
     categoryBtnTextActive: { color: '#FFFFFF' },
-
-    // ACTIVE FILTERS
     activeFiltersContainer: { marginTop: 12, height: 40 },
     activeFiltersScroll: { paddingHorizontal: 20 },
     activePill: { backgroundColor: '#68BB59', borderRadius: 20, paddingHorizontal: 12, height: 32, marginRight: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-
-    // MEAL CARDS 
     sectionTitle: { fontSize: 18, fontWeight: '700', paddingHorizontal: 22, marginTop: 25 },
     listBottomPadding: { paddingBottom: 40 },
     cardContainer: { backgroundColor: '#FFF', borderRadius: 15, marginHorizontal: 20, marginTop: 15, padding: 8, borderWidth: 3, borderColor: '#68BB59' },
@@ -383,8 +382,6 @@ const styles = StyleSheet.create({
     cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
     cardBadge: { fontSize: 15, color: '#000', fontWeight: '400' },
     heartCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center', marginLeft: 'auto' },
-
-    // --- FILTER MODAL ---
     filterOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     filterMenu: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, maxHeight: '85%' },
     filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -397,89 +394,40 @@ const styles = StyleSheet.create({
     chipSelected: { backgroundColor: '#000', borderColor: '#000' },
     chipText: { color: '#666', fontSize: 14, fontWeight: '600' },
     chipTextSelected: { color: '#FFFFFF' },
-    applyBtn: { backgroundColor: '#000', borderRadius: 18, paddingVertical: 18, alignItems: 'center', marginTop: 30 },
+    filterFooterButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30, gap: 10 },
+    applyBtn: { flex: 2, backgroundColor: '#68BB59', borderRadius: 18, paddingVertical: 18, alignItems: 'center' },
     applyBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 18 },
-
+    clearBtn: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 18, paddingVertical: 18, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
+    clearBtnText: { color: '#666', fontWeight: '800', fontSize: 16 },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(255,255,255,0.92)' },
     absoluteHero: { position: 'absolute', top: 0, width: width, height: height * 0.45, opacity: 0.8 },
     modalContainer: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 25 },
-    closeBtn: {
-        position: 'absolute',
-        top: 50,
-        right: 25,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 30,
-        padding: 10,
-        zIndex: 20,
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4
-    },
-    detailInfoBox: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 25,
-        borderWidth: 4.5,
-        borderColor: '#FF8A65',
-        width: '94%',
-        height: '78%',
-        overflow: 'hidden',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10
-    },
+    closeBtn: { position: 'absolute', top: 50, right: 25, backgroundColor: '#FFFFFF', borderRadius: 30, padding: 10, zIndex: 20 },
+    detailInfoBox: { backgroundColor: '#FFFFFF', borderRadius: 25, borderWidth: 4.5, borderColor: '#FF8A65', width: '94%', height: '78%', overflow: 'hidden' },
     internalScrollView: { flex: 1 },
-    innerScrollContent: {
-        paddingTop: 24,
-        paddingBottom: 50,
-        paddingHorizontal: 22
-    },
+    innerScrollContent: { paddingTop: 24, paddingBottom: 50, paddingHorizontal: 22 },
     detailHeaderSection: { flexDirection: 'row', marginBottom: 20 },
     detailThumb: { width: 120, height: 120, borderRadius: 18, backgroundColor: '#F0F0F0' },
     detailHeaderText: { flex: 1, marginLeft: 18, justifyContent: 'center' },
     titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    detailTitle: { fontSize: 24, fontWeight: '900', color: '#1A1A1A', flex: 1, letterSpacing: -0.5 },
+    detailTitle: { fontSize: 24, fontWeight: '900', color: '#1A1A1A', flex: 1 },
     detailHeartBtn: { padding: 4, marginLeft: 8 },
-    detailSubText: { fontSize: 15, color: '#777', marginTop: 6, lineHeight: 20, fontWeight: '400' },
+    detailSubText: { fontSize: 15, color: '#777', marginTop: 6, lineHeight: 20 },
     detailMetaContainer: { flexDirection: 'row', marginTop: 15, gap: 15 },
     detailMetaValue: { fontSize: 15, color: '#333', marginLeft: 8, fontWeight: '600' },
-    detailDivider: { height: 1.5, backgroundColor: '#F0F0F0', marginVertical: 20, width: '100%' },
-
-    // Sections
+    detailDivider: { height: 1.5, backgroundColor: '#F0F0F0', marginVertical: 20 },
     detailSection: { marginBottom: 30 },
-    sectionHeading: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#1A1A1A',
-        marginBottom: 16,
-        letterSpacing: -0.3
-    },
-
-    // Ingredients List
+    sectionHeading: { fontSize: 20, fontWeight: '800', color: '#1A1A1A', marginBottom: 16 },
     ingredientsList: { paddingLeft: 4 },
     ingredientRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-    bulletPoint: { fontSize: 18, color: '#FF8A65', marginRight: 10, fontWeight: 'bold' },
-    ingredientText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 22 },
-    ingredientAmount: { fontWeight: '700', color: '#1A1A1A' },
-
-    // Steps List
+    bulletPoint: { fontSize: 18, color: '#FF8A65', marginRight: 10 },
+    ingredientText: { fontSize: 16, color: '#444', flex: 1 },
+    ingredientAmount: { fontWeight: '700' },
     stepsList: { gap: 18 },
     stepContainer: { flexDirection: 'row', alignItems: 'flex-start' },
-    stepNumberCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#FF8A65',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 14,
-        marginTop: 2
-    },
+    stepNumberCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FF8A65', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
     stepNumberText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
-    stepContentText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 24, fontWeight: '400' },
+    stepContentText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 24 },
 });
 
 export default HomeScreen;
