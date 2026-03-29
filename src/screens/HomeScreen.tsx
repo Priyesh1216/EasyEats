@@ -24,10 +24,9 @@ import {
     Heart,
     Plus,
     X,
-    AlertCircle,
     PlusCircle
 } from 'lucide-react-native';
-import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 const { height, width } = Dimensions.get('window');
@@ -60,25 +59,32 @@ const HomeScreen = () => {
 
     const hasActiveFilters = filters.allergies.length > 0 || filters.dietary.length > 0 || filters.effort !== '';
 
-    const fetchMeals = async (category: string) => {
+    // Real-time listener for meals
+    useEffect(() => {
         setLoading(true);
-        try {
-            const q = query(collection(db, 'meals'), where('category', 'array-contains', category));
-            const snapshot = await getDocs(q);
+        const q = query(collection(db, 'meals'), where('category', 'array-contains', activeCategory));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetched = snapshot.docs.map(doc => ({
                 id: doc.id,
-                favorited: false,
                 ...doc.data()
             }));
             setAllMeals(fetched);
-        } catch (error) {
-            console.error("Firebase Error: ", error);
-        } finally {
             setLoading(false);
-        }
-    };
+        }, (error) => {
+            console.error("Firebase Snapshot Error: ", error);
+            setLoading(false);
+        });
 
-    useEffect(() => { fetchMeals(activeCategory); }, [activeCategory]);
+        return () => unsubscribe();
+    }, [activeCategory]);
+
+    useEffect(() => {
+        if (selectedMeal) {
+            const updated = allMeals.find(m => m.id === selectedMeal.id);
+            if (updated) setSelectedMeal(updated);
+        }
+    }, [allMeals]);
 
     useEffect(() => {
         let results = [...allMeals];
@@ -105,11 +111,6 @@ const HomeScreen = () => {
         const mealToUpdate = allMeals.find(m => m.id === mealId);
         if (!mealToUpdate) return;
         const newStatus = !mealToUpdate.favorited;
-
-        const updateArray = (arr: any[]) => arr.map(m => m.id === mealId ? { ...m, favorited: newStatus } : m);
-        setAllMeals(prev => updateArray(prev));
-        setFilteredMeals(prev => updateArray(prev));
-        if (selectedMeal?.id === mealId) setSelectedMeal({ ...selectedMeal, favorited: newStatus });
 
         try {
             await updateDoc(doc(db, 'meals', mealId), { favorited: newStatus });
@@ -269,7 +270,6 @@ const HomeScreen = () => {
                                 indicatorStyle="black"
                                 decelerationRate="fast"
                             >
-                                {/* Header Section inside ScrollView */}
                                 <View style={styles.detailHeaderSection}>
                                     <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.detailThumb} />
                                     <View style={styles.detailHeaderText}>
@@ -303,7 +303,6 @@ const HomeScreen = () => {
 
                                 <View style={styles.detailDivider} />
 
-                                {/* Ingredients Section */}
                                 <View style={styles.detailSection}>
                                     <Text style={styles.sectionHeading}>Ingredients</Text>
                                     <View style={styles.ingredientsList}>
@@ -319,7 +318,6 @@ const HomeScreen = () => {
                                     </View>
                                 </View>
 
-                                {/* Steps Section */}
                                 <View style={styles.detailSection}>
                                     <Text style={styles.sectionHeading}>Instructions</Text>
                                     <View style={styles.stepsList}>
@@ -343,7 +341,7 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    // --- LAYOUT & MAIN ---
+    // LAYOUT & MAIN 
     container: { flex: 1, backgroundColor: '#FFFFFF' },
     loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     stickyHeaderContent: { backgroundColor: '#FFFFFF', paddingBottom: 15, zIndex: 10 },
@@ -352,7 +350,7 @@ const styles = StyleSheet.create({
     subText: { fontSize: 14, color: '#666', marginTop: 2 },
     headerLogo: { width: 50, height: 50, borderRadius: 25 },
 
-    // --- SEARCH & CATEGORY ---
+    // SEARCH & CATEGORY 
     searchRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20 },
     searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, paddingHorizontal: 15, height: 50, borderWidth: 1, borderColor: '#EEE', marginRight: 10 },
     searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
@@ -363,12 +361,12 @@ const styles = StyleSheet.create({
     categoryBtnText: { color: '#68BB59', fontWeight: '800', fontSize: 14 },
     categoryBtnTextActive: { color: '#FFFFFF' },
 
-    // --- ACTIVE FILTERS ---
+    // ACTIVE FILTERS
     activeFiltersContainer: { marginTop: 12, height: 40 },
     activeFiltersScroll: { paddingHorizontal: 20 },
     activePill: { backgroundColor: '#68BB59', borderRadius: 20, paddingHorizontal: 12, height: 32, marginRight: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
 
-    // --- MEAL CARDS ---
+    // MEAL CARDS 
     sectionTitle: { fontSize: 18, fontWeight: '700', paddingHorizontal: 22, marginTop: 25 },
     listBottomPadding: { paddingBottom: 40 },
     cardContainer: { backgroundColor: '#FFF', borderRadius: 15, marginHorizontal: 20, marginTop: 15, padding: 8, borderWidth: 3, borderColor: '#68BB59' },
@@ -402,7 +400,6 @@ const styles = StyleSheet.create({
     applyBtn: { backgroundColor: '#000', borderRadius: 18, paddingVertical: 18, alignItems: 'center', marginTop: 30 },
     applyBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 18 },
 
-    // --- MEAL DETAIL MODAL (EXPANDED) ---
     modalOverlay: { flex: 1, backgroundColor: 'rgba(255,255,255,0.92)' },
     absoluteHero: { position: 'absolute', top: 0, width: width, height: height * 0.45, opacity: 0.8 },
     modalContainer: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 25 },
