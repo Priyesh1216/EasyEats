@@ -3,6 +3,11 @@ export type Cost = "$" | "$$" | "$$$";
 export type Category = "healthy" | "quick" | "budget";
 export type SkillRequired = "Beginner" | "Intermediate" | "Advanced";
 
+export interface Ingredient {
+    name: string;
+    amount: string;
+}
+
 export interface Meal {
     id: string;
     name: string;
@@ -17,4 +22,6 @@ export interface Meal {
     dietaryPreferences: string[];
     favorited: boolean;
     imageUrl: string;
+    ingredients: Ingredient[];
+    steps: string[];
 }
