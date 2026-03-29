@@ -185,8 +185,6 @@ const HomeScreen = () => {
                     source={require('../../assets/custom_logo.png')}
                     style={styles.headerLogo}
                 />
-            </View>
-
                 <View style={styles.metaRow}>
                     <Clock size={16} color="#FF8A65" />
                     <Text style={styles.cardMetaText}>{meal.timeMinutes} min</Text>
@@ -195,7 +193,6 @@ const HomeScreen = () => {
                     <Users size={16} color="#FF8A65" />
                     <Text style={styles.cardMetaText}>{meal.servings} servings</Text>
                 </View>
-
                 <View style={styles.cardFooter}>
                     <Text style={styles.cardBadge}>{meal.effortLevel}  |  {meal.cost}</Text>
                     <TouchableOpacity style={styles.heartCircle} onPress={() => toggleFavorite(meal.id)}>
@@ -256,7 +253,6 @@ const HomeScreen = () => {
                 />
             )}
 
-            {/* Filter Modal */}
             <Modal visible={isFilterVisible} animationType="slide" transparent={true}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.filterOverlay}>
                     <View style={styles.filterMenu}>
@@ -305,7 +301,6 @@ const HomeScreen = () => {
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* Detail Modal */}
             <Modal visible={!!selectedMeal} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
                     <Image source={{ uri: selectedMeal?.imageUrl }} style={styles.absoluteHero} blurRadius={2} />
