@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 
+
+
 const PreferencesScreen = ({ route, navigation }: any) => {
     const isEditMode = route.params?.isEditMode ?? false;
 
@@ -40,19 +42,29 @@ const PreferencesScreen = ({ route, navigation }: any) => {
         </View>
     );
 
-    return (
+return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.header}>
-                    {!isEditMode && (
-                        <TouchableOpacity
-                            style={styles.skip}
-                            onPress={() => navigation.navigate('MainTabs')}
-                        >
-                            <Text style={styles.skipText}>Skip for now</Text>
-                        </TouchableOpacity>
-                    )}
-                    <Text style={styles.title}>Set Your Meal Preferences</Text>
+                    {/* The Top Right Button: Toggles between Skip and Cancel */}
+                    <TouchableOpacity
+                        style={styles.skip}
+                        onPress={() => {
+                            if (isEditMode) {
+                                navigation.goBack(); // Return to Profile if cancelling
+                            } else {
+                                navigation.navigate('MainTabs'); // Skip to Home if signing up
+                            }
+                        }}
+                    >
+                        <Text style={styles.skipText}>
+                            {isEditMode ? 'Cancel' : 'Skip for now'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.title}>
+                        {isEditMode ? 'Edit Preferences' : 'Set Your Meal Preferences'}
+                    </Text>
                     <Text style={styles.subtitle}>Helps us suggest meals for you</Text>
                 </View>
 
@@ -76,12 +88,20 @@ const PreferencesScreen = ({ route, navigation }: any) => {
                 <OptionBox label="Likes" placeholder="Select all that apply" />
                 <OptionBox label="Dislikes" placeholder="Select all that apply" />
 
+                {/* The Main Bottom Button: Toggles between Save and Continue */}
                 <TouchableOpacity
                     style={styles.mainBtn}
-                    onPress={() => navigation.navigate('MainTabs')}
+                    onPress={() => {
+                        if (isEditMode) {
+                            // You'd usually save to Firebase here
+                            navigation.goBack(); // Return to Profile after saving
+                        } else {
+                            navigation.navigate('MainTabs'); // Proceed to Home
+                        }
+                    }}
                 >
                     <Text style={styles.mainBtnText}>
-                        {isEditMode ? 'Save Changes' : 'Continue'}
+                        {isEditMode ? 'Save' : 'Continue'}
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
