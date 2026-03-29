@@ -103,7 +103,7 @@ const HomeScreen = () => {
                     <Text style={styles.subText}>Find a meal that fits your day</Text>
                 </View>
                 <Image
-                    source={require('../../assets/logo_icon.png')}
+                    source={require('../../assets/custom_logo.png')}
                     style={styles.headerLogo}
                 />
             </View>
