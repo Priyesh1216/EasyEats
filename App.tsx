@@ -1,26 +1,72 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { clearAndSeedMeals } from "./src/services/mealService";
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Home, Calendar, ShoppingCart, Heart, User } from 'lucide-react-native';
 
-export default function App(): React.JSX.Element {
+import WelcomeScreen from './src/screens/WelcomeScreen';
+import SignUpScreen from './src/screens/SignUpScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import PreferencesScreen from './src/screens/PreferencesScreen';
+import HomeScreen from './src/screens/HomeScreen';
+import WeeklyPlanScreen from './src/screens/WeeklyPlanScreen';
+import GroceryListScreen from './src/screens/GroceryListScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
-  useEffect(() => {
-    if (__DEV__) {
-      clearAndSeedMeals();
-    }
-  }, []);
+export type RootStackParamList = {
+  Welcome: undefined;
+  SignUp: undefined;
+  Login: undefined;
+  Preferences: { isEditMode: boolean };
+  MainTabs: undefined;
+};
 
+const Stack = createStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
+
+function MainTabNavigator() {
   return (
-    <View style={styles.container}>
-      <Text>EasyEats</Text>
-    </View>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#FF9B85',
+        tabBarInactiveTintColor: '#999',
+        tabBarStyle: {
+          height: 70,
+          paddingBottom: 10,
+        },
+        tabBarIcon: ({ color, size }) => {
+          if (route.name === 'Home') return <Home size={size} color={color} />;
+          if (route.name === 'Weekly Plan') return <Calendar size={size} color={color} />;
+          if (route.name === 'Grocery List') return <ShoppingCart size={size} color={color} />;
+          if (route.name === 'Favorites') return <Heart size={size} color={color} />;
+          if (route.name === 'Profile') return <User size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Weekly Plan" component={WeeklyPlanScreen} />
+      <Tab.Screen name="Grocery List" component={GroceryListScreen} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="Welcome"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Preferences" component={PreferencesScreen} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
