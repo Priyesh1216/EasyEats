@@ -8,18 +8,22 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import { db } from '../services/firebase';
 import { Meal } from '../types/meal';
 import MealCard from '../components/MealCard';
+import AddToPlanModal from '../components/AddToPlanModal';
 
 const WeeklyPlanScreen = () => {
   const [planItems, setPlanItems] = useState<
     { date: string; display: string; meals: Meal[] }[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const formatDate = (isoString: string) => {
     const [year, month, day] = isoString.split('-').map(Number);
@@ -87,6 +91,16 @@ const WeeklyPlanScreen = () => {
     }, []),
   );
 
+  const handleOpenModal = (meal: Meal) => {
+    setSelectedMeal(meal);
+    setIsModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    fetchWeeklyPlan();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -119,6 +133,7 @@ const WeeklyPlanScreen = () => {
                   <MealCard
                     key={`${group.date}-${index}-${meal.id}`}
                     meal={meal}
+                    onAddPress={() => handleOpenModal(meal)}
                   />
                 ))}
               </View>
@@ -132,6 +147,12 @@ const WeeklyPlanScreen = () => {
           )}
         </ScrollView>
       )}
+
+      <AddToPlanModal
+        visible={isModalVisible}
+        meal={selectedMeal}
+        onClose={handleModalClose}
+      />
     </SafeAreaView>
   );
 };
