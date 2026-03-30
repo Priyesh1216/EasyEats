@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Image,
@@ -12,382 +11,209 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  Animated,
-  RefreshControl,
-  LayoutAnimation,
 } from 'react-native';
 import {
   SlidersHorizontal,
-  Search,
+  Search as SearchIcon,
+  RotateCw,
   Clock,
   Users,
   Heart,
   X,
-  PlusCircle,
-  RotateCw,
 } from 'lucide-react-native';
-import { collection, query, where, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+  doc,
+} from 'firebase/firestore';
 import { db } from '../services/firebase';
-import MealCard, { Meal } from '../components/MealCard';
+import { Meal, Category } from '../types/meal';
+import MealCard from '../components/MealCard';
+import AddToPlanModal from '../components/AddToPlanModal';
 
 const { height, width } = Dimensions.get('window');
 
-const HomeScreen = () => {
-  const [allMeals, setAllMeals] = useState<Meal[]>([]);
-  const [filteredMeals, setFilteredMeals] = useState<Meal[]>([]);
+interface HomeScreenProps {
+  isPickerMode?: boolean;
+  onMealSelect?: (meal: Meal) => void;
+}
+
+const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('healthy');
-  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [displayedIds, setDisplayedIds] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<Category>('healthy');
 
-  const flatListRef = useRef<FlatList>(null);
-  const spinValue = useRef(new Animated.Value(0)).current;
+  // Detail modal
+  const [detailMeal, setDetailMeal] = useState<Meal | null>(null);
 
-  const [isFilterVisible, setIsFilterVisible] = useState(false);
-  const [customAllergy, setCustomAllergy] = useState('');
-  const [customDietary, setCustomDietary] = useState('');
-  const [filters, setFilters] = useState({
-    allergies: [] as string[],
-    dietary: [] as string[],
-    effort: '' as string,
-  });
+  // Add-to-plan modal
+  const [addToPlanMeal, setAddToPlanMeal] = useState<Meal | null>(null);
+  const [isAddToPlanVisible, setIsAddToPlanVisible] = useState(false);
 
-  const categories = [
+  const categories: { label: string; value: Category }[] = [
     { label: 'Healthy', value: 'healthy' },
     { label: 'Quick', value: 'quick' },
     { label: 'Budget', value: 'budget' },
   ];
 
-  const predefinedAllergies = ['Nuts', 'Dairy', 'Gluten', 'Shellfish'];
-  const effortOptions = ['Easy', 'Medium', 'Hard'];
-
-  const hasActiveFilters =
-    filters.allergies.length > 0 || filters.dietary.length > 0 || filters.effort !== '';
-
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  const fetchMeals = async (category: Category) => {
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, 'meals'),
+        where('category', 'array-contains', category),
+      );
+      const snapshot = await getDocs(q);
+      const fetched = snapshot.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Meal,
+      );
+      setMeals(fetched.sort(() => Math.random() - 0.5).slice(0, 4));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    const q = query(collection(db, 'meals'), where('category', 'array-contains', activeCategory));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Meal[];
-      setAllMeals(fetched);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    fetchMeals(activeCategory);
   }, [activeCategory]);
 
-  useEffect(() => {
-    if (allMeals.length > 0 && displayedIds.length === 0) {
-      shuffleMeals();
+  // Card body tap
+  const handleCardPress = (meal: Meal) => {
+    if (isPickerMode && onMealSelect) {
+      onMealSelect(meal);
+    } else {
+      setDetailMeal(meal);
     }
-  }, [allMeals]);
-
-  useEffect(() => {
-    let results = allMeals.filter(m => displayedIds.includes(m.id));
-
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      results = allMeals.filter(
-        m =>
-          m.name.toLowerCase().includes(q) ||
-          m.description.toLowerCase().includes(q),
-      );
-    }
-    if (filters.allergies.length > 0) {
-      results = results.filter(
-        m => !m.dietaryPreferences?.some(p => filters.allergies.includes(p)),
-      );
-    }
-    if (filters.dietary.length > 0) {
-      results = results.filter(
-        m => m.dietaryPreferences?.some(p => filters.dietary.includes(p)),
-      );
-    }
-    if (filters.effort !== '') {
-      results = results.filter(m => m.effortLevel === filters.effort);
-    }
-    setFilteredMeals(results);
-  }, [searchQuery, allMeals, filters, displayedIds]);
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-
-  const shuffleMeals = () => {
-    const shuffled = [...allMeals].sort(() => 0.5 - Math.random()).slice(0, 5);
-    setDisplayedIds(shuffled.map(m => m.id));
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    spinValue.setValue(0);
-    Animated.timing(spinValue, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    shuffleMeals();
-    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    setTimeout(() => setRefreshing(false), 800);
+  // + button tap
+  const handleAddPress = (meal: Meal) => {
+    if (isPickerMode && onMealSelect) {
+      onMealSelect(meal);
+    } else {
+      setAddToPlanMeal(meal);
+      setIsAddToPlanVisible(true);
+    }
   };
 
-  const spin = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  const toggleFavorite = async (mealId: string) => {
-    const meal = allMeals.find(m => m.id === mealId);
-    if (!meal) return;
+  // Heart button
+  const handleToggleFavorite = async (meal: Meal) => {
     try {
-      await updateDoc(doc(db, 'meals', mealId), { favorited: !meal.favorited });
+      await updateDoc(doc(db, 'meals', meal.id), { favorited: !meal.favorited });
+      setMeals((prev) =>
+        prev.map((m) => m.id === meal.id ? { ...m, favorited: !m.favorited } : m),
+      );
+      // Keep detail modal in sync
+      if (detailMeal?.id === meal.id) {
+        setDetailMeal((d) => d ? { ...d, favorited: !d.favorited } : d);
+      }
     } catch (error) {
       console.error(error);
     }
   };
 
-  const toggleFilter = (type: 'allergies' | 'dietary', value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [type]: prev[type].includes(value)
-        ? prev[type].filter(i => i !== value)
-        : [...prev[type], value],
-    }));
-  };
-
-  const addCustomItem = (type: 'allergies' | 'dietary') => {
-    const val = type === 'allergies' ? customAllergy : customDietary;
-    if (val.trim() === '') return;
-    if (!filters[type].includes(val.trim())) toggleFilter(type, val.trim());
-    type === 'allergies' ? setCustomAllergy('') : setCustomDietary('');
-  };
-
-  // ── Sub-components ────────────────────────────────────────────────────────
-
-  const FilterChip = ({ label, isSelected, onPress, isRemovable }: any) => (
-    <TouchableOpacity
-      style={[styles.chip, isSelected && styles.chipSelected, isRemovable && styles.activePill]}
-      onPress={onPress}
-    >
-      <Text style={[styles.chipText, (isSelected || isRemovable) && styles.chipTextSelected]}>
-        {label}
-      </Text>
-      {isRemovable && <X size={14} color="#FFF" style={{ marginLeft: 6 }} />}
-    </TouchableOpacity>
-  );
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      {!isPickerMode && (
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Welcome, Sarah</Text>
+            <Text style={styles.subText}>Find a meal that fits your day</Text>
+          </View>
+          <Image
+            source={require('../../assets/custom_logo.png')}
+            style={styles.headerLogo}
+          />
+        </View>
+      )}
+
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <SearchIcon size={20} color="#666" />
+          <TextInput placeholder="Search Meals" style={styles.searchInput} />
+        </View>
+        <TouchableOpacity style={styles.filterBtn}>
+          <SlidersHorizontal size={22} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.categoryRow}>
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat.value}
+            style={[
+              styles.categoryBtn,
+              activeCategory === cat.value && styles.categoryBtnActive,
+            ]}
+            onPress={() => setActiveCategory(cat.value)}
+          >
+            <Text
+              style={[
+                styles.categoryBtnText,
+                activeCategory === cat.value && styles.categoryBtnTextActive,
+              ]}
+            >
+              {cat.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {loading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#68BB59" />
-        </View>
+        <ActivityIndicator
+          size="large"
+          color="#68BB59"
+          style={{ flex: 1, marginTop: 50 }}
+        />
       ) : (
         <FlatList
-          ref={flatListRef}
-          data={filteredMeals}
-          keyExtractor={item => item.id}
+          data={meals}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <MealCard
               meal={item}
-              onPress={setSelectedMeal}
-              onToggleFavorite={toggleFavorite}
-              onAdd={(meal) => { /* TODO: add to weekly plan */ }}
+              onPress={() => handleCardPress(item)}
+              onAddPress={() => handleAddPress(item)}
+              onFavoritePress={() => handleToggleFavorite(item)}
             />
           )}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#68BB59"
-            />
-          }
-          ListHeaderComponent={
-            <View style={styles.stickyHeaderContent}>
-              <View style={styles.header}>
-                <View>
-                  <Text style={styles.welcomeText}>Welcome, Sarah</Text>
-                  <Text style={styles.subText}>Find a meal that fits your day</Text>
-                </View>
-                <Image
-                  source={require('../../assets/custom_logo.png')}
-                  style={styles.headerLogo}
-                />
-              </View>
-
-              <View style={styles.searchRow}>
-                <View style={styles.searchBar}>
-                  <Search size={20} color="#666" />
-                  <TextInput
-                    placeholder="Search Meals or Ingredients"
-                    style={styles.searchInput}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={styles.filterBtn}
-                  onPress={() => setIsFilterVisible(true)}
-                >
-                  <SlidersHorizontal size={22} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.categoryRow}>
-                {categories.map(cat => (
-                  <TouchableOpacity
-                    key={cat.value}
-                    style={[
-                      styles.categoryBtn,
-                      activeCategory === cat.value && styles.categoryBtnActive,
-                    ]}
-                    onPress={() => {
-                      setDisplayedIds([]);
-                      setActiveCategory(cat.value);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryBtnText,
-                        activeCategory === cat.value && styles.categoryBtnTextActive,
-                      ]}
-                    >
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.sectionTitle}>Suggested Meals</Text>
-            </View>
-          }
+          contentContainerStyle={styles.list}
           ListFooterComponent={
             <TouchableOpacity
               style={styles.generateBtn}
-              onPress={handleRefresh}
-              disabled={refreshing}
+              onPress={() => fetchMeals(activeCategory)}
             >
-              <Animated.View style={{ transform: [{ rotate: spin }], marginRight: 8 }}>
-                <RotateCw size={18} color="#FF8A65" />
-              </Animated.View>
+              <RotateCw size={18} color="#FF8A65" style={{ marginRight: 8 }} />
               <Text style={styles.generateBtnText}>Generate New Meals</Text>
             </TouchableOpacity>
           }
-          stickyHeaderIndices={[0]}
-          contentContainerStyle={styles.listBottomPadding}
-          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* ── Filter modal ────────────────────────────────────────────────── */}
-      <Modal visible={isFilterVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.filterOverlay}
-        >
-          <View style={styles.filterMenu}>
-            <View style={styles.filterHeader}>
-              <Text style={styles.filterMenuTitle}>Filters</Text>
-              <TouchableOpacity onPress={() => setIsFilterVisible(false)}>
-                <X size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
+      {/* ── Add-to-plan modal ───────────────────────────────────────── */}
+      {!isPickerMode && (
+        <AddToPlanModal
+          visible={isAddToPlanVisible}
+          meal={addToPlanMeal}
+          onClose={() => setIsAddToPlanVisible(false)}
+        />
+      )}
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.filterSectionLabel}>Allergies (Exclude)</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.customInput}
-                  placeholder="Add custom allergy..."
-                  value={customAllergy}
-                  onChangeText={setCustomAllergy}
-                />
-                <TouchableOpacity onPress={() => addCustomItem('allergies')}>
-                  <PlusCircle size={32} color="#000" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.chipRow}>
-                {predefinedAllergies.map(item => (
-                  <FilterChip
-                    key={item}
-                    label={item}
-                    isSelected={filters.allergies.includes(item)}
-                    onPress={() => toggleFilter('allergies', item)}
-                  />
-                ))}
-              </View>
-
-              <Text style={styles.filterSectionLabel}>Dietary Preferences</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.customInput}
-                  placeholder="e.g. Vegan, Keto..."
-                  value={customDietary}
-                  onChangeText={setCustomDietary}
-                />
-                <TouchableOpacity onPress={() => addCustomItem('dietary')}>
-                  <PlusCircle size={32} color="#000" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.chipRow}>
-                {['Vegan', 'Vegetarian', 'Pescetarian', 'Paleo'].map(item => (
-                  <FilterChip
-                    key={item}
-                    label={item}
-                    isSelected={filters.dietary.includes(item)}
-                    onPress={() => toggleFilter('dietary', item)}
-                  />
-                ))}
-              </View>
-
-              <Text style={styles.filterSectionLabel}>Cooking Effort</Text>
-              <View style={styles.chipRow}>
-                {effortOptions.map(option => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    isSelected={filters.effort === option}
-                    onPress={() =>
-                      setFilters(prev => ({
-                        ...prev,
-                        effort: prev.effort === option ? '' : option,
-                      }))
-                    }
-                  />
-                ))}
-              </View>
-            </ScrollView>
-
-            <View style={styles.filterFooterButtons}>
-              <TouchableOpacity
-                style={styles.clearBtn}
-                onPress={() => setFilters({ allergies: [], dietary: [], effort: '' })}
-              >
-                <Text style={styles.clearBtnText}>Clear All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.applyBtn}
-                onPress={() => setIsFilterVisible(false)}
-              >
-                <Text style={styles.applyBtnText}>Apply Filters</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── Detail modal ────────────────────────────────────────────────── */}
-      <Modal visible={!!selectedMeal} animationType="slide" transparent>
+      {/* ── Detail expand modal ─────────────────────────────────────── */}
+      <Modal visible={!!detailMeal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <Image
-            source={{ uri: selectedMeal?.imageUrl }}
+            source={{ uri: detailMeal?.imageUrl }}
             style={styles.absoluteHero}
             blurRadius={2}
           />
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedMeal(null)}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setDetailMeal(null)}>
               <X size={28} color="#000" strokeWidth={2.5} />
             </TouchableOpacity>
 
@@ -395,51 +221,44 @@ const HomeScreen = () => {
               <ScrollView
                 style={styles.internalScrollView}
                 contentContainerStyle={styles.innerScrollContent}
+                showsVerticalScrollIndicator
               >
                 <View style={styles.detailHeaderSection}>
                   <Image
-                    source={{ uri: selectedMeal?.imageUrl }}
+                    source={{ uri: detailMeal?.imageUrl }}
                     style={styles.detailThumb}
                   />
                   <View style={styles.detailHeaderText}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.detailTitle}>{selectedMeal?.name}</Text>
+                      <Text style={styles.detailTitle}>{detailMeal?.name}</Text>
                       <TouchableOpacity
                         style={styles.detailHeartBtn}
-                        onPress={() => toggleFavorite(selectedMeal!.id)}
+                        onPress={() => detailMeal && handleToggleFavorite(detailMeal)}
                       >
                         <Heart
                           size={24}
-                          color={selectedMeal?.favorited ? '#FF0000' : '#000'}
-                          fill={selectedMeal?.favorited ? '#FF0000' : 'transparent'}
+                          color={detailMeal?.favorited ? '#FF0000' : '#D1D1D1'}
+                          fill={detailMeal?.favorited ? '#FF0000' : 'none'}
                         />
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.detailSubText}>{selectedMeal?.description}</Text>
+                    <Text style={styles.detailSubText}>{detailMeal?.description}</Text>
                     <View style={styles.detailMetaContainer}>
-                      <View style={styles.metaRow}>
+                      <View style={styles.detailMetaRow}>
                         <Clock size={18} color="#FF8A65" />
-                        <Text style={styles.detailMetaValue}>
-                          {selectedMeal?.timeMinutes} min
-                        </Text>
+                        <Text style={styles.detailMetaValue}>{detailMeal?.timeMinutes} min</Text>
                       </View>
-                      <View style={styles.metaRow}>
+                      <View style={styles.detailMetaRow}>
                         <Users size={18} color="#FF8A65" />
-                        <Text style={styles.detailMetaValue}>
-                          {selectedMeal?.servings} servings
-                        </Text>
+                        <Text style={styles.detailMetaValue}>{detailMeal?.servings} servings</Text>
                       </View>
                     </View>
-
-                    {/* Effort + cost */}
                     <Text style={styles.detailBadge}>
-                      {selectedMeal?.effortLevel}{'   |   '}{selectedMeal?.cost}
+                      {detailMeal?.effortLevel}{'   |   '}{detailMeal?.cost}
                     </Text>
-
-                    {/* Dietary preference pills */}
-                    {selectedMeal?.dietaryPreferences && selectedMeal.dietaryPreferences.length > 0 && (
+                    {detailMeal?.dietaryPreferences && detailMeal.dietaryPreferences.length > 0 && (
                       <View style={styles.detailPillsRow}>
-                        {selectedMeal.dietaryPreferences.map((pref) => (
+                        {detailMeal.dietaryPreferences.map((pref) => (
                           <View key={pref} style={styles.detailPill}>
                             <Text style={styles.detailPillText}>{pref}</Text>
                           </View>
@@ -453,77 +272,104 @@ const HomeScreen = () => {
 
                 <View style={styles.detailSection}>
                   <Text style={styles.sectionHeading}>Ingredients</Text>
-                  {selectedMeal?.ingredients?.map((item, index) => (
-                    <View key={index} style={styles.ingredientRow}>
-                      <Text style={styles.bulletPoint}>•</Text>
-                      <Text style={styles.ingredientText}>
-                        <Text style={styles.ingredientAmount}>{item.amount} </Text>
-                        {item.name}
-                      </Text>
-                    </View>
-                  ))}
+                  <View style={styles.ingredientsList}>
+                    {detailMeal?.ingredients?.map((item, index) => (
+                      <View key={index} style={styles.ingredientRow}>
+                        <Text style={styles.bulletPoint}>•</Text>
+                        <Text style={styles.ingredientText}>
+                          <Text style={styles.ingredientAmount}>{item.amount} </Text>
+                          {item.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
 
                 <View style={styles.detailSection}>
                   <Text style={styles.sectionHeading}>Instructions</Text>
-                  {selectedMeal?.steps?.map((step, index) => (
-                    <View key={index} style={styles.stepContainer}>
-                      <View style={styles.stepNumberCircle}>
-                        <Text style={styles.stepNumberText}>{index + 1}</Text>
+                  <View style={styles.stepsList}>
+                    {detailMeal?.steps?.map((step, index) => (
+                      <View key={index} style={styles.stepContainer}>
+                        <View style={styles.stepNumberCircle}>
+                          <Text style={styles.stepNumberText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.stepContentText}>{step}</Text>
                       </View>
-                      <Text style={styles.stepContentText}>{step}</Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
               </ScrollView>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  stickyHeaderContent: { backgroundColor: '#FFFFFF', paddingBottom: 15, zIndex: 10 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 10 },
-  welcomeText: { fontSize: 26, fontWeight: '800', color: '#1A1A1A' },
-  subText: { fontSize: 14, color: '#666', marginTop: 2 },
-  headerLogo: { width: 50, height: 50, borderRadius: 25 },
-  searchRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20 },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, paddingHorizontal: 15, height: 50, borderWidth: 1, borderColor: '#EEE', marginRight: 10 },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
-  filterBtn: { backgroundColor: '#68BB59', width: 50, height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  categoryRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20, justifyContent: 'space-between' },
-  categoryBtn: { width: '31%', paddingVertical: 12, borderRadius: 15, borderWidth: 2, borderColor: '#68BB59', alignItems: 'center', backgroundColor: '#FFF' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginTop: 10,
+  },
+  welcomeText: { fontSize: 26, fontWeight: '800' },
+  subText: { fontSize: 14, color: '#666' },
+  headerLogo: { width: 50, height: 50, resizeMode: 'contain' },
+  searchRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 25 },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginRight: 10,
+  },
+  searchInput: { flex: 1, marginLeft: 10 },
+  filterBtn: {
+    backgroundColor: '#7BC67E',
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginTop: 25,
+    justifyContent: 'space-between',
+  },
+  categoryBtn: {
+    width: '30%',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#68BB59',
+    alignItems: 'center',
+  },
   categoryBtnActive: { backgroundColor: '#68BB59' },
-  categoryBtnText: { color: '#68BB59', fontWeight: '800', fontSize: 14 },
+  categoryBtnText: { color: '#68BB59', fontWeight: 'bold' },
   categoryBtnTextActive: { color: '#FFFFFF' },
-  activePill: { backgroundColor: '#68BB59', borderRadius: 20, paddingHorizontal: 12, height: 32, marginRight: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: '700', paddingHorizontal: 22, marginTop: 25 },
-  listBottomPadding: { paddingBottom: 40 },
-  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 30, marginBottom: 20, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 25, borderWidth: 2, borderColor: '#555', backgroundColor: '#FFF' },
-  generateBtnText: { color: '#FF8A65', fontWeight: '800', fontSize: 16 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  filterOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  filterMenu: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, maxHeight: '85%' },
-  filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  filterMenuTitle: { fontSize: 26, fontWeight: '800' },
-  filterSectionLabel: { fontSize: 12, fontWeight: '800', color: '#BBB', marginTop: 18, marginBottom: 12, textTransform: 'uppercase' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  customInput: { flex: 1, backgroundColor: '#F5F5F5', height: 50, borderRadius: 15, paddingHorizontal: 18, fontSize: 15, marginRight: 12, borderWidth: 1, borderColor: '#EEE' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  chip: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 25, backgroundColor: '#F5F5F5', marginRight: 10, marginBottom: 12, borderWidth: 1, borderColor: '#EEE' },
-  chipSelected: { backgroundColor: '#000', borderColor: '#000' },
-  chipText: { color: '#666', fontSize: 14, fontWeight: '600' },
-  chipTextSelected: { color: '#FFFFFF' },
-  filterFooterButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30, gap: 10 },
-  applyBtn: { flex: 2, backgroundColor: '#68BB59', borderRadius: 18, paddingVertical: 18, alignItems: 'center' },
-  applyBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 18 },
-  clearBtn: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 18, paddingVertical: 18, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
-  clearBtnText: { color: '#666', fontWeight: '800', fontSize: 16 },
+  list: { paddingHorizontal: 20, marginTop: 20 },
+  generateBtn: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    width: '65%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  generateBtnText: { color: '#FF8A65', fontWeight: '700' },
+  // ── Detail modal ──────────────────────────────────────────────────
   modalOverlay: { flex: 1, backgroundColor: 'rgba(255,255,255,0.92)' },
   absoluteHero: { position: 'absolute', top: 0, width: width, height: height * 0.45, opacity: 0.8 },
   modalContainer: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 25 },
@@ -539,6 +385,7 @@ const styles = StyleSheet.create({
   detailHeartBtn: { padding: 4, marginLeft: 8 },
   detailSubText: { fontSize: 15, color: '#777', marginTop: 6, lineHeight: 20 },
   detailMetaContainer: { flexDirection: 'row', marginTop: 15, gap: 15 },
+  detailMetaRow: { flexDirection: 'row', alignItems: 'center' },
   detailMetaValue: { fontSize: 15, color: '#333', marginLeft: 8, fontWeight: '600' },
   detailBadge: { fontSize: 13, color: '#555', fontWeight: '500', marginTop: 10 },
   detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 6 },
@@ -547,11 +394,13 @@ const styles = StyleSheet.create({
   detailDivider: { height: 1.5, backgroundColor: '#F0F0F0', marginVertical: 20 },
   detailSection: { marginBottom: 30 },
   sectionHeading: { fontSize: 20, fontWeight: '800', color: '#1A1A1A', marginBottom: 16 },
+  ingredientsList: { paddingLeft: 4 },
   ingredientRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   bulletPoint: { fontSize: 18, color: '#FF8A65', marginRight: 10 },
   ingredientText: { fontSize: 16, color: '#444', flex: 1 },
   ingredientAmount: { fontWeight: '700' },
-  stepContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  stepsList: { gap: 18 },
+  stepContainer: { flexDirection: 'row', alignItems: 'flex-start' },
   stepNumberCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FF8A65', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
   stepNumberText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
   stepContentText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 24 },

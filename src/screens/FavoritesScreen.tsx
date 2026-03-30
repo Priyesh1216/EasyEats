@@ -27,7 +27,9 @@ import {
 } from 'lucide-react-native';
 import { collection, query, where, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import MealCard, { Meal } from '../components/MealCard';
+import { Meal } from '../types/meal';
+import MealCard from '../components/MealCard';
+import AddToPlanModal from '../components/AddToPlanModal';
 
 const { height, width } = Dimensions.get('window');
 
@@ -38,6 +40,10 @@ const FavoritesScreen = () => {
     const [activeCategory, setActiveCategory] = useState('healthy');
     const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Add-to-plan modal
+    const [addToPlanMeal, setAddToPlanMeal] = useState<Meal | null>(null);
+    const [isAddToPlanVisible, setIsAddToPlanVisible] = useState(false);
 
     const [isFilterVisible, setIsFilterVisible] = useState(false);
     const [customAllergy, setCustomAllergy] = useState('');
@@ -84,6 +90,7 @@ const FavoritesScreen = () => {
         return () => unsubscribe();
     }, [activeCategory]);
 
+    // Keep detail modal in sync if favorited meal gets unfavorited (removed from list)
     useEffect(() => {
         if (selectedMeal) {
             const updated = allMeals.find(m => m.id === selectedMeal.id);
@@ -92,6 +99,7 @@ const FavoritesScreen = () => {
         }
     }, [allMeals]);
 
+    // Search + filter
     useEffect(() => {
         let results = [...allMeals];
         if (searchQuery.trim() !== '') {
@@ -179,9 +187,15 @@ const FavoritesScreen = () => {
                     renderItem={({ item }) => (
                         <MealCard
                             meal={item}
-                            onPress={setSelectedMeal}
-                            onToggleFavorite={toggleFavorite}
-                        // no onAdd = + button hidden
+                            // Card body tap → open detail modal
+                            onPress={() => setSelectedMeal(item)}
+                            // Heart button → toggle favorite
+                            onFavoritePress={() => toggleFavorite(item.id)}
+                            // + button → open AddToPlanModal
+                            onAddPress={() => {
+                                setAddToPlanMeal(item);
+                                setIsAddToPlanVisible(true);
+                            }}
                         />
                     )}
                     ListHeaderComponent={
@@ -277,6 +291,13 @@ const FavoritesScreen = () => {
                     }
                 />
             )}
+
+            {/* ── Add-to-plan modal ────────────────────────────────────────────── */}
+            <AddToPlanModal
+                visible={isAddToPlanVisible}
+                meal={addToPlanMeal}
+                onClose={() => setIsAddToPlanVisible(false)}
+            />
 
             {/* ── Filter modal ────────────────────────────────────────────────── */}
             <Modal visible={isFilterVisible} animationType="slide" transparent>
@@ -422,12 +443,10 @@ const FavoritesScreen = () => {
                                             </View>
                                         </View>
 
-                                        {/* Effort + cost */}
                                         <Text style={styles.detailBadge}>
                                             {selectedMeal?.effortLevel}{'   |   '}{selectedMeal?.cost}
                                         </Text>
 
-                                        {/* Dietary preference pills */}
                                         {selectedMeal?.dietaryPreferences && selectedMeal.dietaryPreferences.length > 0 && (
                                             <View style={styles.detailPillsRow}>
                                                 {selectedMeal.dietaryPreferences.map((pref) => (
