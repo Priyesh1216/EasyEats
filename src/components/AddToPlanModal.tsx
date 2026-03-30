@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -6,8 +6,12 @@ import {
   Text,
   TouchableOpacity,
   Pressable,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Calendar, Search, X, Check } from 'lucide-react-native';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { Meal } from '../types/meal';
 
 interface AddToPlanModalProps {
@@ -17,7 +21,27 @@ interface AddToPlanModalProps {
 }
 
 const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
+  const [adding, setAdding] = useState(false);
+
   if (!meal) return null;
+
+  const handleAddMeal = async () => {
+    setAdding(true);
+    try {
+      await addDoc(collection(db, 'weeklyPlan'), {
+        mealId: meal.id,
+        mealName: meal.name,
+        date: '2026-04-05',
+        createdAt: serverTimestamp(),
+      });
+      onClose();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Could not add meal to plan.');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <Modal transparent visible={visible} animationType="fade">
@@ -42,7 +66,11 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
 
           <View style={styles.row}>
             <X size={24} color="#000" />
-            <TouchableOpacity style={styles.button} onPress={onClose}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={onClose}
+              disabled={adding}
+            >
               <Text style={styles.buttonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -51,12 +79,14 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
             <Check size={24} color="#000" />
             <TouchableOpacity
               style={styles.button}
-              onPress={() => {
-                console.log('Added', meal.name);
-                onClose();
-              }}
+              onPress={handleAddMeal}
+              disabled={adding}
             >
-              <Text style={styles.buttonText}>Add</Text>
+              {adding ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.buttonText}>Add</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
