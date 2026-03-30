@@ -8,14 +8,16 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Platform,
+  Modal,
 } from 'react-native';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
+import { X } from 'lucide-react-native';
 import { db } from '../services/firebase';
 import { Meal } from '../types/meal';
 import MealCard from '../components/MealCard';
 import AddToPlanModal from '../components/AddToPlanModal';
+import HomeScreen from './HomeScreen';
 
 const WeeklyPlanScreen = () => {
   const [planItems, setPlanItems] = useState<
@@ -23,7 +25,9 @@ const WeeklyPlanScreen = () => {
   >([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isPlanModalVisible, setIsPlanModalVisible] = useState(false);
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [targetDate, setTargetDate] = useState<string | undefined>(undefined);
 
   const formatDate = (isoString: string) => {
     const [year, month, day] = isoString.split('-').map(Number);
@@ -42,14 +46,7 @@ const WeeklyPlanScreen = () => {
       const planSnapshot = await getDocs(
         query(collection(db, 'weeklyPlan'), orderBy('date', 'asc')),
       );
-      const planData = planSnapshot.docs.map(
-        (doc) =>
-          ({
-            id: doc.id,
-            ...doc.data(),
-          }) as any,
-      );
-
+      const planData = planSnapshot.docs.map((doc) => doc.data());
       const mealsSnapshot = await getDocs(collection(db, 'meals'));
       const mealsLookup = mealsSnapshot.docs.reduce(
         (acc, doc) => {
@@ -60,24 +57,22 @@ const WeeklyPlanScreen = () => {
       );
 
       const grouped: { [key: string]: Meal[] } = {};
-
       planData.forEach((item) => {
-        const fullMealDetails = mealsLookup[item.mealId];
-        if (fullMealDetails) {
+        const fullMeal = mealsLookup[item.mealId];
+        if (fullMeal) {
           if (!grouped[item.date]) grouped[item.date] = [];
-          grouped[item.date].push(fullMealDetails);
+          grouped[item.date].push(fullMeal);
         }
       });
-
-      const sortedPlan = Object.keys(grouped)
-        .sort()
-        .map((date) => ({
-          date,
-          display: formatDate(date),
-          meals: grouped[date],
-        }));
-
-      setPlanItems(sortedPlan);
+      setPlanItems(
+        Object.keys(grouped)
+          .sort()
+          .map((date) => ({
+            date,
+            display: formatDate(date),
+            meals: grouped[date],
+          })),
+      );
     } catch (error) {
       console.error(error);
     } finally {
@@ -91,14 +86,16 @@ const WeeklyPlanScreen = () => {
     }, []),
   );
 
-  const handleOpenModal = (meal: Meal) => {
-    setSelectedMeal(meal);
-    setIsModalVisible(true);
+  const handleOpenEmptyModal = (date: string) => {
+    setTargetDate(date);
+    setSelectedMeal(null);
+    setIsPlanModalVisible(true);
   };
 
-  const handleModalClose = () => {
-    setIsModalVisible(false);
-    fetchWeeklyPlan();
+  const handleMealPicked = (meal: Meal) => {
+    setSelectedMeal(meal);
+    setIsPickerVisible(false);
+    setIsPlanModalVisible(true);
   };
 
   return (
@@ -106,9 +103,7 @@ const WeeklyPlanScreen = () => {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Weekly Planner</Text>
-          <Text style={styles.subtitle}>
-            Plan your meals for the week, your way
-          </Text>
+          <Text style={styles.subtitle}>Plan your meals for the week</Text>
         </View>
         <Image
           source={require('../../assets/custom_logo.png')}
@@ -120,73 +115,74 @@ const WeeklyPlanScreen = () => {
         <ActivityIndicator size="large" color="#68BB59" style={{ flex: 1 }} />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
-          {planItems.length > 0 ? (
-            planItems.map((group) => (
-              <View key={group.date}>
-                <View style={styles.dayHeader}>
-                  <Text style={styles.dayLabel}>{group.display}</Text>
-                  <TouchableOpacity style={styles.addBtn}>
-                    <Text style={styles.addBtnText}>ADD MEAL +</Text>
-                  </TouchableOpacity>
-                </View>
-                {group.meals.map((meal, index) => (
-                  <MealCard
-                    key={`${group.date}-${index}-${meal.id}`}
-                    meal={meal}
-                    onAddPress={() => handleOpenModal(meal)}
-                  />
-                ))}
+          {planItems.map((group) => (
+            <View key={group.date}>
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayLabel}>{group.display}</Text>
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={() => handleOpenEmptyModal(group.date)}
+                >
+                  <Text style={styles.addBtnText}>ADD MEAL +</Text>
+                </TouchableOpacity>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyPlaceholder}>
-                <Text style={styles.placeholderText}>No meals planned yet</Text>
-              </View>
+              {group.meals.map((meal, idx) => (
+                <MealCard
+                  key={`${group.date}-${idx}`}
+                  meal={meal}
+                  onAddPress={() => {
+                    setSelectedMeal(meal);
+                    setTargetDate(group.date);
+                    setIsPlanModalVisible(true);
+                  }}
+                />
+              ))}
             </View>
-          )}
+          ))}
         </ScrollView>
       )}
 
+      <Modal visible={isPickerVisible} animationType="slide">
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select a Meal</Text>
+            <TouchableOpacity onPress={() => setIsPickerVisible(false)}>
+              <X size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <HomeScreen isPickerMode={true} onMealSelect={handleMealPicked} />
+        </SafeAreaView>
+      </Modal>
+
       <AddToPlanModal
-        visible={isModalVisible}
+        visible={isPlanModalVisible}
         meal={selectedMeal}
-        onClose={handleModalClose}
+        initialDate={targetDate}
+        onClose={() => {
+          setIsPlanModalVisible(false);
+          fetchWeeklyPlan();
+        }}
+        onChooseMeal={() => {
+          setIsPlanModalVisible(false);
+          setIsPickerVisible(true);
+        }}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFF' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 25,
     marginTop: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 5,
-  },
-  headerLogo: {
-    width: 45,
-    height: 45,
-    resizeMode: 'contain',
-  },
-  scroll: {
-    paddingHorizontal: 25,
-    paddingBottom: 30,
-  },
+  title: { fontSize: 28, fontWeight: 'bold' },
+  subtitle: { color: '#666', fontSize: 14 },
+  headerLogo: { width: 45, height: 45, resizeMode: 'contain' },
+  scroll: { paddingHorizontal: 25, paddingBottom: 30 },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -194,40 +190,23 @@ const styles = StyleSheet.create({
     marginTop: 35,
     marginBottom: 15,
   },
-  dayLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-  },
+  dayLabel: { fontSize: 16, fontWeight: '700' },
   addBtn: {
     backgroundColor: '#C8E6C9',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  addBtnText: {
-    color: '#2E7D32',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    marginTop: 100,
+  addBtnText: { color: '#2E7D32', fontSize: 12, fontWeight: 'bold' },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
   },
-  emptyPlaceholder: {
-    height: 60,
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EEE',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: '#999',
-    fontSize: 14,
-  },
+  pickerTitle: { fontSize: 20, fontWeight: 'bold' },
 });
 
 export default WeeklyPlanScreen;

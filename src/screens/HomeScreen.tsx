@@ -21,7 +21,12 @@ import { Meal, Category } from '../types/meal';
 import MealCard from '../components/MealCard';
 import AddToPlanModal from '../components/AddToPlanModal';
 
-const HomeScreen = () => {
+interface HomeScreenProps {
+  isPickerMode?: boolean;
+  onMealSelect?: (meal: Meal) => void;
+}
+
+const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>('healthy');
@@ -43,14 +48,9 @@ const HomeScreen = () => {
       );
       const snapshot = await getDocs(q);
       const fetched = snapshot.docs.map(
-        (doc) =>
-          ({
-            id: doc.id,
-            ...doc.data(),
-          }) as Meal,
+        (doc) => ({ id: doc.id, ...doc.data() }) as Meal,
       );
-      const shuffled = fetched.sort(() => Math.random() - 0.5).slice(0, 4);
-      setMeals(shuffled);
+      setMeals(fetched.sort(() => Math.random() - 0.5).slice(0, 4));
     } catch (error) {
       console.error(error);
     } finally {
@@ -62,32 +62,34 @@ const HomeScreen = () => {
     fetchMeals(activeCategory);
   }, [activeCategory]);
 
-  const handleOpenModal = (meal: Meal) => {
-    setSelectedMeal(meal);
-    setIsModalVisible(true);
+  const handleMealPress = (meal: Meal) => {
+    if (isPickerMode && onMealSelect) {
+      onMealSelect(meal);
+    } else {
+      setSelectedMeal(meal);
+      setIsModalVisible(true);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Welcome, Sarah</Text>
-          <Text style={styles.subText}>Find a meal that fits your day</Text>
+    <View style={styles.container}>
+      {!isPickerMode && (
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Welcome, Sarah</Text>
+            <Text style={styles.subText}>Find a meal that fits your day</Text>
+          </View>
+          <Image
+            source={require('../../assets/custom_logo.png')}
+            style={styles.headerLogo}
+          />
         </View>
-        <Image
-          source={require('../../assets/custom_logo.png')}
-          style={styles.headerLogo}
-        />
-      </View>
+      )}
 
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
           <SearchIcon size={20} color="#666" />
-          <TextInput
-            placeholder="Search Meals or Ingredients"
-            placeholderTextColor="#999"
-            style={styles.searchInput}
-          />
+          <TextInput placeholder="Search Meals" style={styles.searchInput} />
         </View>
         <TouchableOpacity style={styles.filterBtn}>
           <SlidersHorizontal size={22} color="#FFF" />
@@ -116,19 +118,20 @@ const HomeScreen = () => {
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Suggested Meals</Text>
-
       {loading ? (
-        <ActivityIndicator size="large" color="#68BB59" style={{ flex: 1 }} />
+        <ActivityIndicator
+          size="large"
+          color="#68BB59"
+          style={{ flex: 1, marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={meals}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <MealCard meal={item} onAddPress={() => handleOpenModal(item)} />
+            <MealCard meal={item} onAddPress={() => handleMealPress(item)} />
           )}
           contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
           ListFooterComponent={
             <TouchableOpacity
               style={styles.generateBtn}
@@ -141,47 +144,29 @@ const HomeScreen = () => {
         />
       )}
 
-      <AddToPlanModal
-        visible={isModalVisible}
-        meal={selectedMeal}
-        onClose={() => setIsModalVisible(false)}
-      />
-    </SafeAreaView>
+      {!isPickerMode && (
+        <AddToPlanModal
+          visible={isModalVisible}
+          meal={selectedMeal}
+          onClose={() => setIsModalVisible(false)}
+        />
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 24,
     marginTop: 10,
   },
-  welcomeText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  subText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  headerLogo: {
-    width: 50,
-    height: 50,
-    resizeMode: 'contain',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 25,
-  },
+  welcomeText: { fontSize: 26, fontWeight: '800' },
+  subText: { fontSize: 14, color: '#666' },
+  headerLogo: { width: 50, height: 50, resizeMode: 'contain' },
+  searchRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 25 },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
@@ -194,11 +179,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     marginRight: 10,
   },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 15,
-  },
+  searchInput: { flex: 1, marginLeft: 10 },
   filterBtn: {
     backgroundColor: '#7BC67E',
     width: 48,
@@ -221,34 +202,12 @@ const styles = StyleSheet.create({
     borderColor: '#68BB59',
     alignItems: 'center',
   },
-  categoryBtnActive: {
-    backgroundColor: '#68BB59',
-  },
-  categoryBtnText: {
-    color: '#68BB59',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  categoryBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    paddingHorizontal: 20,
-    marginTop: 30,
-    marginBottom: 15,
-    color: '#333',
-  },
-  list: {
-    paddingHorizontal: 20,
-  },
+  categoryBtnActive: { backgroundColor: '#68BB59' },
+  categoryBtnText: { color: '#68BB59', fontWeight: 'bold' },
+  categoryBtnTextActive: { color: '#FFFFFF' },
+  list: { paddingHorizontal: 20, marginTop: 20 },
   generateBtn: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderWidth: 1.5,
-    borderColor: '#666',
-    borderRadius: 12,
     paddingVertical: 10,
     width: '65%',
     alignSelf: 'center',
@@ -257,11 +216,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 30,
   },
-  generateBtnText: {
-    color: '#FF8A65',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  generateBtnText: { color: '#FF8A65', fontWeight: '700' },
 });
 
 export default HomeScreen;

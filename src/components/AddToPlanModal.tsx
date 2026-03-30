@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Calendar, Search, X, Check } from 'lucide-react-native';
+import { Calendar, Search, X, Check, ChevronRight } from 'lucide-react-native';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { Meal } from '../types/meal';
@@ -18,16 +18,30 @@ import { Meal } from '../types/meal';
 interface AddToPlanModalProps {
   visible: boolean;
   meal: Meal | null;
+  initialDate?: string;
   onClose: () => void;
+  onChooseMeal?: () => void;
 }
 
-const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
+const AddToPlanModal = ({
+  visible,
+  meal,
+  initialDate,
+  onClose,
+  onChooseMeal,
+}: AddToPlanModalProps) => {
   const [adding, setAdding] = useState(false);
   const [dateValue, setDateValue] = useState(
     new Date().toISOString().split('T')[0],
   );
 
-  if (!meal) return null;
+  useEffect(() => {
+    if (visible && initialDate) {
+      setDateValue(initialDate);
+    } else if (visible && !initialDate) {
+      setDateValue(new Date().toISOString().split('T')[0]);
+    }
+  }, [visible, initialDate]);
 
   const formatDate = (isoString: string) => {
     const [year, month, day] = isoString.split('-').map(Number);
@@ -41,6 +55,10 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
   };
 
   const handleAddMeal = async () => {
+    if (!meal) {
+      Alert.alert('Selection Required', 'Please choose a meal first.');
+      return;
+    }
     setAdding(true);
     try {
       await addDoc(collection(db, 'weeklyPlan'), {
@@ -92,9 +110,15 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
 
           <View style={styles.row}>
             <Search size={24} color="#000" />
-            <View style={styles.inputField}>
-              <Text style={styles.inputText}>{meal.name}</Text>
-            </View>
+            <TouchableOpacity
+              style={[styles.inputField, !meal && styles.chooseField]}
+              onPress={onChooseMeal}
+            >
+              <Text style={[styles.inputText, !meal && styles.placeholderText]}>
+                {meal ? meal.name : 'Choose Meal'}
+              </Text>
+              {!meal && <ChevronRight size={18} color="#999" />}
+            </TouchableOpacity>
           </View>
 
           <View style={styles.row}>
@@ -111,9 +135,9 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
           <View style={styles.row}>
             <Check size={24} color="#000" />
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, !meal && styles.disabledButton]}
               onPress={handleAddMeal}
-              disabled={adding}
+              disabled={adding || !meal}
             >
               {adding ? (
                 <ActivityIndicator size="small" color="#000" />
@@ -166,6 +190,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  chooseField: {
+    borderWidth: 1,
+    borderColor: '#999',
+    borderStyle: 'dashed',
+  },
   button: {
     flex: 1,
     backgroundColor: '#FFF',
@@ -175,9 +204,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   inputText: {
     fontSize: 15,
     color: '#000',
+  },
+  placeholderText: {
+    color: '#999',
   },
   buttonText: {
     fontSize: 16,
