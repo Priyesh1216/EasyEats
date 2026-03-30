@@ -11,6 +11,8 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   SlidersHorizontal,
@@ -20,6 +22,7 @@ import {
   Users,
   Heart,
   X,
+  PlusCircle,
 } from 'lucide-react-native';
 import {
   collection,
@@ -42,7 +45,8 @@ interface HomeScreenProps {
 }
 
 const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
-  const [meals, setMeals] = useState<Meal[]>([]);
+  const [allMeals, setAllMeals] = useState<Meal[]>([]);  // full fetched list
+  const [meals, setMeals] = useState<Meal[]>([]);          // filtered display list
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>('healthy');
 
@@ -53,12 +57,29 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
   const [addToPlanMeal, setAddToPlanMeal] = useState<Meal | null>(null);
   const [isAddToPlanVisible, setIsAddToPlanVisible] = useState(false);
 
+  // Search & filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [customAllergy, setCustomAllergy] = useState('');
+  const [customDietary, setCustomDietary] = useState('');
+  const [filters, setFilters] = useState({
+    allergies: [] as string[],
+    dietary: [] as string[],
+    effort: '' as string,
+  });
+
+  const predefinedAllergies = ['Nuts', 'Dairy', 'Gluten', 'Shellfish'];
+  const effortOptions = ['Easy', 'Medium', 'Hard'];
+  const hasActiveFilters =
+    filters.allergies.length > 0 || filters.dietary.length > 0 || filters.effort !== '';
+
   const categories: { label: string; value: Category }[] = [
     { label: 'Healthy', value: 'healthy' },
     { label: 'Quick', value: 'quick' },
     { label: 'Budget', value: 'budget' },
   ];
 
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchMeals = async (category: Category) => {
     setLoading(true);
     try {
@@ -70,7 +91,9 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
       const fetched = snapshot.docs.map(
         (d) => ({ id: d.id, ...d.data() }) as Meal,
       );
-      setMeals(fetched.sort(() => Math.random() - 0.5).slice(0, 4));
+      const shuffled = fetched.sort(() => Math.random() - 0.5).slice(0, 4);
+      setAllMeals(shuffled);
+      setMeals(shuffled);
     } catch (error) {
       console.error(error);
     } finally {
@@ -81,6 +104,37 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
   useEffect(() => {
     fetchMeals(activeCategory);
   }, [activeCategory]);
+
+  // ── Re-filter whenever search/filters/allMeals change ────────────────────
+  useEffect(() => {
+    let results = [...allMeals];
+
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      results = results.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.description.toLowerCase().includes(q),
+      );
+    }
+    if (filters.allergies.length > 0) {
+      results = results.filter(
+        (m) => !m.dietaryPreferences?.some((p) => filters.allergies.includes(p)),
+      );
+    }
+    if (filters.dietary.length > 0) {
+      results = results.filter(
+        (m) => m.dietaryPreferences?.some((p) => filters.dietary.includes(p)),
+      );
+    }
+    if (filters.effort !== '') {
+      results = results.filter((m) => m.effortLevel === filters.effort);
+    }
+
+    setMeals(results);
+  }, [searchQuery, allMeals, filters]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   // Card body tap
   const handleCardPress = (meal: Meal) => {
@@ -105,18 +159,58 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
   const handleToggleFavorite = async (meal: Meal) => {
     try {
       await updateDoc(doc(db, 'meals', meal.id), { favorited: !meal.favorited });
-      setMeals((prev) =>
-        prev.map((m) => m.id === meal.id ? { ...m, favorited: !m.favorited } : m),
-      );
-      // Keep detail modal in sync
+      const updater = (m: Meal) =>
+        m.id === meal.id ? { ...m, favorited: !m.favorited } : m;
+      setAllMeals((prev) => prev.map(updater));
+      setMeals((prev) => prev.map(updater));
       if (detailMeal?.id === meal.id) {
-        setDetailMeal((d) => d ? { ...d, favorited: !d.favorited } : d);
+        setDetailMeal((d) => (d ? { ...d, favorited: !d.favorited } : d));
       }
     } catch (error) {
       console.error(error);
     }
   };
 
+  // Filter helpers
+  const toggleFilter = (type: 'allergies' | 'dietary', value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [type]: prev[type].includes(value)
+        ? prev[type].filter((i) => i !== value)
+        : [...prev[type], value],
+    }));
+  };
+
+  const addCustomItem = (type: 'allergies' | 'dietary') => {
+    const val = type === 'allergies' ? customAllergy : customDietary;
+    if (val.trim() === '') return;
+    if (!filters[type].includes(val.trim())) toggleFilter(type, val.trim());
+    type === 'allergies' ? setCustomAllergy('') : setCustomDietary('');
+  };
+
+  const clearAllFilters = () => {
+    setFilters({ allergies: [], dietary: [], effort: '' });
+    setSearchQuery('');
+  };
+
+  // Filter chip sub-component
+  const FilterChip = ({ label, isSelected, onPress, isRemovable }: any) => (
+    <TouchableOpacity
+      style={[
+        styles.chip,
+        isSelected && styles.chipSelected,
+        isRemovable && styles.activePill,
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.chipText, (isSelected || isRemovable) && styles.chipTextSelected]}>
+        {label}
+      </Text>
+      {isRemovable && <X size={14} color="#FFF" style={{ marginLeft: 6 }} />}
+    </TouchableOpacity>
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       {!isPickerMode && (
@@ -132,16 +226,62 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
         </View>
       )}
 
+      {/* Search bar — now wired to searchQuery */}
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
           <SearchIcon size={20} color="#666" />
-          <TextInput placeholder="Search Meals" style={styles.searchInput} />
+          <TextInput
+            placeholder="Search Meals"
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
+        {/* Filter button — opens modal, darkens when filters active */}
+        <TouchableOpacity
+          style={[styles.filterBtn, hasActiveFilters && styles.filterBtnActive]}
+          onPress={() => setIsFilterVisible(true)}
+        >
           <SlidersHorizontal size={22} color="#FFF" />
         </TouchableOpacity>
       </View>
 
+      {/* Active filter pills */}
+      {hasActiveFilters && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activeFiltersScroll}
+          >
+            {filters.effort !== '' && (
+              <FilterChip
+                label={filters.effort}
+                isRemovable
+                onPress={() => setFilters((p) => ({ ...p, effort: '' }))}
+              />
+            )}
+            {filters.dietary.map((item) => (
+              <FilterChip
+                key={item}
+                label={item}
+                isRemovable
+                onPress={() => toggleFilter('dietary', item)}
+              />
+            ))}
+            {filters.allergies.map((item) => (
+              <FilterChip
+                key={item}
+                label={`No ${item}`}
+                isRemovable
+                onPress={() => toggleFilter('allergies', item)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Category tabs */}
       <View style={styles.categoryRow}>
         {categories.map((cat) => (
           <TouchableOpacity
@@ -183,6 +323,9 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
             />
           )}
           contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No meals match your filters.</Text>
+          }
           ListFooterComponent={
             <TouchableOpacity
               style={styles.generateBtn}
@@ -195,7 +338,7 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
         />
       )}
 
-      {/* ── Add-to-plan modal ───────────────────────────────────────── */}
+      {/* ── Add-to-plan modal ─────────────────────────────────────────────── */}
       {!isPickerMode && (
         <AddToPlanModal
           visible={isAddToPlanVisible}
@@ -204,7 +347,101 @@ const HomeScreen = ({ isPickerMode, onMealSelect }: HomeScreenProps) => {
         />
       )}
 
-      {/* ── Detail expand modal ─────────────────────────────────────── */}
+      {/* ── Filter modal ──────────────────────────────────────────────────── */}
+      <Modal visible={isFilterVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.filterOverlay}
+        >
+          <View style={styles.filterMenu}>
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterMenuTitle}>Filters</Text>
+              <TouchableOpacity onPress={() => setIsFilterVisible(false)}>
+                <X size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.filterSectionLabel}>Allergies (Exclude)</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.customInput}
+                  placeholder="Add custom allergy..."
+                  value={customAllergy}
+                  onChangeText={setCustomAllergy}
+                />
+                <TouchableOpacity onPress={() => addCustomItem('allergies')}>
+                  <PlusCircle size={32} color="#000" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.chipRow}>
+                {predefinedAllergies.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    isSelected={filters.allergies.includes(item)}
+                    onPress={() => toggleFilter('allergies', item)}
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.filterSectionLabel}>Dietary Preferences</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.customInput}
+                  placeholder="e.g. Vegan, Keto..."
+                  value={customDietary}
+                  onChangeText={setCustomDietary}
+                />
+                <TouchableOpacity onPress={() => addCustomItem('dietary')}>
+                  <PlusCircle size={32} color="#000" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.chipRow}>
+                {['Vegan', 'Vegetarian', 'Pescetarian', 'Paleo'].map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    isSelected={filters.dietary.includes(item)}
+                    onPress={() => toggleFilter('dietary', item)}
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.filterSectionLabel}>Cooking Effort</Text>
+              <View style={styles.chipRow}>
+                {effortOptions.map((option) => (
+                  <FilterChip
+                    key={option}
+                    label={option}
+                    isSelected={filters.effort === option}
+                    onPress={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        effort: prev.effort === option ? '' : option,
+                      }))
+                    }
+                  />
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={styles.filterFooterButtons}>
+              <TouchableOpacity style={styles.clearBtn} onPress={clearAllFilters}>
+                <Text style={styles.clearBtnText}>Clear All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => setIsFilterVisible(false)}
+              >
+                <Text style={styles.applyBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Detail expand modal ───────────────────────────────────────────── */}
       <Modal visible={!!detailMeal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <Image
@@ -340,6 +577,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterBtnActive: { backgroundColor: '#4a9a3c' },
   categoryRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -357,7 +595,7 @@ const styles = StyleSheet.create({
   categoryBtnActive: { backgroundColor: '#68BB59' },
   categoryBtnText: { color: '#68BB59', fontWeight: 'bold' },
   categoryBtnTextActive: { color: '#FFFFFF' },
-  list: { paddingHorizontal: 20, marginTop: 20 },
+  list: { paddingHorizontal: 20, marginTop: 20, paddingBottom: 90 },
   generateBtn: {
     flexDirection: 'row',
     paddingVertical: 10,
@@ -369,7 +607,41 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   generateBtnText: { color: '#FF8A65', fontWeight: '700' },
-  // ── Detail modal ──────────────────────────────────────────────────
+  emptyText: { textAlign: 'center', color: '#AAA', marginTop: 40, fontSize: 15 },
+
+  // ── Active filter pills ───────────────────────────────────────────────────
+  activeFiltersContainer: { marginTop: 12, height: 40 },
+  activeFiltersScroll: { paddingHorizontal: 20 },
+  activePill: {
+    backgroundColor: '#68BB59',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 32,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Filter modal ──────────────────────────────────────────────────────────
+  filterOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  filterMenu: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, maxHeight: '85%' },
+  filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  filterMenuTitle: { fontSize: 26, fontWeight: '800' },
+  filterSectionLabel: { fontSize: 12, fontWeight: '800', color: '#BBB', marginTop: 18, marginBottom: 12, textTransform: 'uppercase' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  customInput: { flex: 1, backgroundColor: '#F5F5F5', height: 50, borderRadius: 15, paddingHorizontal: 18, fontSize: 15, marginRight: 12, borderWidth: 1, borderColor: '#EEE' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  chip: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 25, backgroundColor: '#F5F5F5', marginRight: 10, marginBottom: 12, borderWidth: 1, borderColor: '#EEE' },
+  chipSelected: { backgroundColor: '#000', borderColor: '#000' },
+  chipText: { color: '#666', fontSize: 14, fontWeight: '600' },
+  chipTextSelected: { color: '#FFFFFF' },
+  filterFooterButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30, gap: 10 },
+  applyBtn: { flex: 2, backgroundColor: '#68BB59', borderRadius: 18, paddingVertical: 18, alignItems: 'center' },
+  applyBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 18 },
+  clearBtn: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 18, paddingVertical: 18, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
+  clearBtnText: { color: '#666', fontWeight: '800', fontSize: 16 },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(255,255,255,0.92)' },
   absoluteHero: { position: 'absolute', top: 0, width: width, height: height * 0.45, opacity: 0.8 },
   modalContainer: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 25 },
