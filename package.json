@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "babel-plugin-transform-flow-enums": "^0.0.2",
     "typescript": "~5.9.2"
   },
   "private": true
