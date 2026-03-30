@@ -6,103 +6,110 @@ import {
     Image,
     TouchableOpacity,
 } from 'react-native';
-import { Clock, Users, Heart, Plus } from 'lucide-react-native';
-
-export interface Ingredient {
-    name: string;
-    amount: string;
-}
-
-export interface Meal {
-    id: string;
-    name: string;
-    description: string;
-    imageUrl: string;
-    timeMinutes: number;
-    servings: number;
-    effortLevel: string;
-    cost: string;
-    favorited: boolean;
-    category?: string[];
-    dietaryPreferences?: string[];
-    ingredients?: Ingredient[];
-    steps?: string[];
-}
+import { Clock, Users, Heart, Plus, Minus } from 'lucide-react-native';
+import { Meal } from '../types/meal';
 
 interface MealCardProps {
     meal: Meal;
-    onPress: (meal: Meal) => void;
-    onToggleFavorite: (mealId: string) => void;
-    onAdd?: (meal: Meal) => void;
+    // Card body tap — opens detail modal in the parent screen
+    onPress?: () => void;
+    // + button — opens AddToPlanModal in the parent screen
+    onAddPress?: () => void;
+    // Heart button — toggles favorite in the parent screen
+    onFavoritePress?: () => void;
+    // showRemove=true → red − button (WeeklyPlanScreen only)
+    // pressing it calls onRemovePress directly; the confirm Modal lives in the parent
+    showRemove?: boolean;
+    onRemovePress?: () => void;
 }
 
-const MealCard: React.FC<MealCardProps> = ({
+export const MealCard = ({
     meal,
     onPress,
-    onToggleFavorite,
-    onAdd,
-}) => {
-    const heartColor = meal.favorited ? '#FF0000' : '#999';
-    const heartFill = meal.favorited ? '#FF0000' : 'transparent';
-
-    // Builds: "Medium   |   $   |   Vegan   |   Vegetarian"
-    const footerParts = [meal.effortLevel, meal.cost, ...(meal.dietaryPreferences ?? [])];
-    const footerLabel = footerParts.join('   |   ');
-
+    onAddPress,
+    onFavoritePress,
+    showRemove = false,
+    onRemovePress,
+}: MealCardProps) => {
     return (
         <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={onPress}
             style={styles.cardContainer}
-            onPress={() => onPress(meal)}
-            activeOpacity={0.85}
         >
-            <Image source={{ uri: meal.imageUrl }} style={styles.cardImage} />
+            <View style={styles.card}>
+                <Image source={{ uri: meal.imageUrl }} style={styles.cardImage} />
+                <View style={styles.cardContent}>
 
-            <View style={styles.cardContent}>
-                {/* Header row: title + add button */}
-                <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                        {meal.name}
-                    </Text>
-                    {onAdd && (
+                    {/* Header: title + plus/minus button */}
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>{meal.name}</Text>
                         <TouchableOpacity
-                            style={styles.plusBtn}
-                            onPress={() => onAdd(meal)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={[styles.plusBtn, showRemove && styles.minusBtn]}
+                            onPress={(e) => {
+                                // Stop the event reaching the outer card TouchableOpacity
+                                e.stopPropagation?.();
+                                if (showRemove) {
+                                    onRemovePress?.();
+                                } else {
+                                    onAddPress?.();
+                                }
+                            }}
                         >
-                            <Plus size={18} color="#000" strokeWidth={3} />
+                            {showRemove
+                                ? <Minus size={20} color="#FFF" strokeWidth={3} />
+                                : <Plus size={20} color="#000" strokeWidth={3} />
+                            }
                         </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Description */}
-                <Text style={styles.cardDescription} numberOfLines={1}>
-                    {meal.description}
-                </Text>
-
-                {/* Time & servings */}
-                <View style={styles.cardMetaStack}>
-                    <View style={styles.metaRow}>
-                        <Clock size={14} color="#FF8A65" />
-                        <Text style={styles.cardMetaText}>{meal.timeMinutes} min</Text>
                     </View>
-                    <View style={styles.metaRow}>
-                        <Users size={14} color="#FF8A65" />
-                        <Text style={styles.cardMetaText}>{meal.servings} servings</Text>
-                    </View>
-                </View>
 
-                {/* Footer: effort | cost | dietary prefs  +  heart */}
-                <View style={styles.cardFooter}>
-                    <Text style={styles.cardBadge} numberOfLines={1} adjustsFontSizeToFit>
-                        {footerLabel}
+                    {/* Description */}
+                    <Text style={styles.cardDescription} numberOfLines={1}>
+                        {meal.description}
                     </Text>
-                    <TouchableOpacity
-                        style={styles.heartCircle}
-                        onPress={() => onToggleFavorite(meal.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <Heart size={20} color={heartColor} fill={heartFill} />
-                    </TouchableOpacity>
+
+                    {/* Time & servings */}
+                    <View style={styles.cardMeta}>
+                        <View style={styles.metaRow}>
+                            <Clock size={16} color="#FF8A65" />
+                            <Text style={styles.cardMetaText}>{meal.timeMinutes} min</Text>
+                        </View>
+                        <View style={styles.metaRow}>
+                            <Users size={16} color="#FF8A65" />
+                            <Text style={styles.cardMetaText}>{meal.servings} servings</Text>
+                        </View>
+                    </View>
+
+                    {/* Footer: effort | cost | dietary + heart */}
+                    <View style={styles.cardFooter}>
+                        <Text style={styles.cardBadge}>{meal.effortLevel}</Text>
+                        <Text style={styles.cardSeparator}>|</Text>
+                        <Text style={styles.cardBadge}>{meal.cost}</Text>
+
+                        {meal.dietaryPreferences && meal.dietaryPreferences.length > 0 && (
+                            <>
+                                <Text style={styles.cardSeparator}>|</Text>
+                                <Text style={styles.cardBadge}>
+                                    {meal.dietaryPreferences[0]}
+                                </Text>
+                            </>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.heartBtn}
+                            onPress={(e) => {
+                                e.stopPropagation?.();
+                                onFavoritePress?.();
+                            }}
+                        >
+                            <Heart
+                                size={22}
+                                color={meal.favorited ? '#FF4444' : '#D1D1D1'}
+                                fill={meal.favorited ? '#FF4444' : 'none'}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
                 </View>
             </View>
         </TouchableOpacity>
@@ -111,26 +118,26 @@ const MealCard: React.FC<MealCardProps> = ({
 
 const styles = StyleSheet.create({
     cardContainer: {
+        borderWidth: 3,
+        borderColor: '#68BB59',
+        borderRadius: 15,
+        marginBottom: 15,
+        overflow: 'hidden',
+    },
+    card: {
         flexDirection: 'row',
         backgroundColor: '#FFF',
-        borderRadius: 18,
-        marginHorizontal: 20,
-        marginTop: 15,
-        padding: 10,
-        borderWidth: 2.5,
-        borderColor: '#68BB59',
-        alignItems: 'center',
+        padding: 8,
     },
     cardImage: {
-        width: 100,
-        height: 100,
-        borderRadius: 12,
-        backgroundColor: '#F0F0F0',
+        width: 95,
+        height: 95,
+        borderRadius: 8,
     },
     cardContent: {
         flex: 1,
-        marginLeft: 14,
-        justifyContent: 'space-between',
+        paddingLeft: 12,
+        justifyContent: 'center',
     },
     cardHeader: {
         flexDirection: 'row',
@@ -140,27 +147,31 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#111',
+        color: '#222',
         flex: 1,
+        marginRight: 5,
     },
     plusBtn: {
-        backgroundColor: '#EFEFEF',
-        borderRadius: 8,
-        padding: 5,
-        marginLeft: 8,
+        backgroundColor: '#E8E8E8',
+        borderRadius: 6,
+        padding: 2,
+    },
+    minusBtn: {
+        backgroundColor: '#FF5252',
     },
     cardDescription: {
         fontSize: 13,
         color: '#777',
-        marginTop: 3,
+        marginTop: 2,
     },
-    cardMetaStack: {
-        marginTop: 6,
+    cardMeta: {
+        flexDirection: 'column',
+        marginTop: 8,
     },
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 3,
+        marginBottom: 2,
     },
     cardMetaText: {
         fontSize: 13,
@@ -171,23 +182,19 @@ const styles = StyleSheet.create({
     cardFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: 6,
+        marginTop: 8,
     },
     cardBadge: {
         fontSize: 13,
-        color: '#555',
-        fontWeight: '500',
-        flex: 1,
-        marginRight: 8,
+        color: '#666',
     },
-    heartCircle: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: '#F2F2F2',
-        justifyContent: 'center',
-        alignItems: 'center',
+    cardSeparator: {
+        marginHorizontal: 8,
+        color: '#DDD',
+        fontSize: 13,
+    },
+    heartBtn: {
+        marginLeft: 'auto' as any,
     },
 });
 
