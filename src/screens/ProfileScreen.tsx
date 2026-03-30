@@ -87,7 +87,8 @@ const ProfileScreen = ({ navigation }: any) => {
                         sublabel="Get help with the app"
                     />
 
-                    <TouchableOpacity style={styles.logoutBtn}>
+                    <TouchableOpacity style={styles.logoutBtn}
+                         onPress={() => navigation.navigate('Welcome')}>
                         <LogOut size={20} color="#FF0000" />
                         <Text style={styles.logoutText}>Sign Out</Text>
                     </TouchableOpacity>
