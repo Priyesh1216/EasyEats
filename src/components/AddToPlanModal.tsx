@@ -66,14 +66,11 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
         <View style={styles.modalContent}>
           <Text style={styles.title}>Add Meal to Weekly Plan</Text>
 
-          {/* Styled Date Row */}
           <View style={styles.row}>
             <Calendar size={24} color="#000" />
             <View style={styles.inputField}>
               <Text style={styles.inputText}>{formatDate(dateValue)}</Text>
               <Calendar size={18} color="#000" />
-
-              {/* Invisible Web Input Overlay */}
               <input
                 type="date"
                 value={dateValue}
@@ -88,7 +85,6 @@ const AddToPlanModal = ({ visible, meal, onClose }: AddToPlanModalProps) => {
                   width: '100%',
                   height: '100%',
                   cursor: 'pointer',
-                  appearance: 'none',
                 }}
               />
             </View>
