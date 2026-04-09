@@ -105,14 +105,14 @@ npx expo start
 Then simulate an iPhone XR screen in your browser's dev tools:
 
 ### Windows (Chrome / Edge)
-1. Press `F12` to open DevTools
+1. Press `F12` **OR** right click on the webpage, and press **Inspect** to open DevTools
 2. Click the **Toggle Device Toolbar** icon (looks like a phone/tablet) in the top-left of DevTools, or press `Ctrl + Shift + M`
 3. In the device dropdown at the top of the viewport, select **iPhone XR** - or choose **Edit** to add it if it's not listed
 4. If the dimensions are not already added, set the dimensions manually to **414 × 896**
 5. Set zoom to **78%** to fit the full screen comfortably
 
 ### Mac (Chrome)
-1. Press `Cmd + Option + I` to open DevTools
+1. Press `Cmd + Option + I` **OR** right click on the webpage, and press **Inspect** to open DevTools
 2. Click the **Toggle Device Toolbar** icon or press `Cmd + Shift + M`
 3. Select **iPhone XR** from the device dropdown, or set dimensions manually to **414 × 896**
 4. Set zoom to **78%**
