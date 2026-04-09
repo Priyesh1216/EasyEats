@@ -77,10 +77,12 @@ useEffect(() => {
 }, []);
 ```
 
-The App component should now look like so
+The App component should now look like so  
+
 <img width="594" height="401" alt="image" src="https://github.com/user-attachments/assets/295635cd-0a56-4444-b8a9-2507cb32f344" />
 
 Save the file. Start the app (`npm start`), wait for the web console to log `30 meals added into DB`, then **remove the `useEffect` and the import** before continuing development.
+
 ---
 
 ### 6. Run the app
